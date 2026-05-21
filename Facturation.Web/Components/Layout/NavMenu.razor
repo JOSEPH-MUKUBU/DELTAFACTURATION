@@ -1,0 +1,236 @@
+@* Sidebar Navigation with Bootstrap Icons *@
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+
+<nav class="delta-sidebar-nav">
+    
+    <a href="/" class="delta-nav-link" data-match="all">
+        <i class="bi bi-speedometer2"></i>
+        <span>Accueil</span>
+    </a>
+
+    <div class="delta-nav-section">VENTES</div>
+
+    <a href="/factures" class="delta-nav-link">
+        <i class="bi bi-receipt-cutoff"></i>
+        <span>Factures</span>
+    </a>
+    <a href="/factures/creer" class="delta-nav-link">
+        <i class="bi bi-plus-square-fill"></i>
+        <span>Nouvelle Facture</span>
+    </a>
+
+    <div class="delta-nav-section">CATALOGUE</div>
+
+    <a href="/produits" class="delta-nav-link">
+        <i class="bi bi-box-seam-fill"></i>
+        <span>Produits</span>
+    </a>
+
+    <div class="delta-nav-section">RÉPERTOIRE</div>
+
+    <a href="/clients" class="delta-nav-link">
+        <i class="bi bi-people-fill"></i>
+        <span>Clients</span>
+    </a>
+
+    <div class="delta-nav-section">ANALYTIQUE</div>
+
+    <a href="/tableaudebord/ventes" class="delta-nav-link">
+        <i class="bi bi-graph-up-arrow"></i>
+        <span>Ventes</span>
+    </a>
+    <a href="/tableaudebord/fiscal" class="delta-nav-link">
+        <i class="bi bi-bank2"></i>
+        <span>Fiscalité</span>
+    </a>
+    <a href="/previsions" class="delta-nav-link">
+        <i class="bi bi-stars"></i>
+        <span>Prévisions</span>
+    </a>
+
+    <div class="delta-nav-section">OUTILS</div>
+
+    <a href="/alertes-stock" class="delta-nav-link">
+        <i class="bi bi-bell-fill"></i>
+        <span>Alertes Stock</span>
+    </a>
+    <a href="/export-comptable" class="delta-nav-link">
+        <i class="bi bi-download"></i>
+        <span>Export CSV</span>
+    </a>
+
+    <hr class="delta-nav-divider" />
+
+    <a href="/parametres" class="delta-nav-link">
+        <i class="bi bi-gear-fill"></i>
+        <span>Paramètres</span>
+    </a>
+
+    @if (AuthService.IsAuthenticated && AuthService.CurrentUser != null)
+    {
+        <hr class="delta-nav-divider" />
+        <div class="delta-sidebar-profile">
+            <div class="profile-capsule">
+                <MudAvatar Style="@($"background-color: {AuthService.CurrentUser.AvatarColor}; color: white; font-weight: 700; font-size: 0.8rem; width: 32px; height: 32px;")">
+                    @AuthService.CurrentUser.FullName.Substring(0, 1).ToUpper()
+                </MudAvatar>
+                <div class="profile-info text-truncate">
+                    <div class="profile-name text-truncate">@AuthService.CurrentUser.FullName</div>
+                    <div class="profile-role text-truncate">@AuthService.CurrentUser.Role</div>
+                </div>
+                <button class="logout-btn-sidebar" @onclick="Logout" title="Se déconnecter">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+    }
+</nav>
+
+@code {
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
+
+<style>
+    .delta-sidebar-nav {
+        padding: 0.5rem 0;
+    }
+    .delta-nav-section {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #94A3B8;
+        padding: 1rem 1.25rem 0.4rem;
+        text-transform: uppercase;
+    }
+    .delta-nav-link {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.55rem 1rem;
+        margin: 1px 0.5rem;
+        border-radius: 8px;
+        color: #374151;
+        text-decoration: none;
+        font-size: 0.875rem;
+        font-weight: 500;
+        transition: background 0.18s ease, color 0.18s ease, transform 0.15s ease;
+        position: relative;
+    }
+    .delta-nav-link i {
+        font-size: 1rem;
+        width: 20px;
+        text-align: center;
+        flex-shrink: 0;
+    }
+    .delta-nav-link:hover {
+        background: rgba(21, 101, 192, 0.09);
+        color: #1565C0;
+        transform: translateX(2px);
+    }
+    .delta-nav-link.active-link {
+        background: rgba(21, 101, 192, 0.13);
+        color: #1565C0;
+        font-weight: 600;
+        border-left: 3px solid #1565C0;
+        padding-left: calc(1rem - 3px);
+    }
+    .delta-nav-link.active-link i {
+        color: #1565C0;
+    }
+    .delta-nav-divider {
+        border-color: #E2E8F0;
+        margin: 0.75rem 1rem;
+    }
+    .delta-sidebar-profile {
+        padding: 0.5rem 0.75rem;
+        margin-top: 0.5rem;
+    }
+    .profile-capsule {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+        overflow: hidden;
+    }
+    .profile-info {
+        display: flex;
+        flex-direction: column;
+        line-height: 1.25;
+        overflow: hidden;
+        flex-grow: 1;
+    }
+    .profile-name {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #1E293B;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .profile-role {
+        font-size: 0.65rem;
+        font-weight: 500;
+        color: #64748B;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .logout-btn-sidebar {
+        background: none;
+        border: none;
+        color: #E53935;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s ease, color 0.15s ease;
+        flex-shrink: 0;
+    }
+    .logout-btn-sidebar:hover {
+        background: #FFEBEE;
+        color: #C62828;
+    }
+    .logout-btn-sidebar i {
+        font-size: 1rem;
+        width: auto !important;
+    }
+</style>
+
+<script>
+    // Highlight active nav link based on current URL
+    (function setActiveLink() {
+        const path = window.location.pathname;
+        document.querySelectorAll('.delta-nav-link').forEach(link => {
+            const href = link.getAttribute('href');
+            const matchAll = link.dataset.match === 'all';
+            const isActive = matchAll ? path === href : (path === href || (href !== '/' && path.startsWith(href)));
+            if (isActive) link.classList.add('active-link');
+            else link.classList.remove('active-link');
+        });
+    })();
+
+    // Re-apply on Blazor navigation
+    window.addEventListener('popstate', () => {
+        setTimeout(() => {
+            const path = window.location.pathname;
+            document.querySelectorAll('.delta-nav-link').forEach(link => {
+                const href = link.getAttribute('href');
+                const matchAll = link.dataset.match === 'all';
+                const isActive = matchAll ? path === href : (path === href || (href !== '/' && path.startsWith(href)));
+                if (isActive) link.classList.add('active-link');
+                else link.classList.remove('active-link');
+            });
+        }, 50);
+    });
+</script>

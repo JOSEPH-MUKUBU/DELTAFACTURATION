@@ -1,0 +1,154 @@
+@page "/factures"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IFactureService FactureService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<!-- Page Header -->
+<div class="page-header animate-in">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h3><i class="bi bi-receipt-cutoff me-2"></i>Factures</h3>
+            <p>Consultez, créez et gérez vos factures de vente</p>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Add" Href="/factures/creer"
+                   Style="background:#fff; color:#1565C0; font-weight:600;">
+            <i class="bi bi-plus-lg me-1"></i> Nouvelle Facture
+        </MudButton>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4 animate-in" style="animation-delay:.1s;">
+    <div class="col-md-4">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon"><i class="bi bi-receipt"></i></div>
+            <div class="stat-value">@factures.Count()</div>
+            <div class="stat-label">Total Factures</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card stat-success">
+            <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">@factures.Count(f => f.Statut == "Validée")</div>
+            <div class="stat-label">Validées</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card stat-accent">
+            <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-value">@factures.Where(f => f.Statut == "Validée").Sum(f => f.MontantTotal).ToString("N0")</div>
+            <div class="stat-label">CA Total (DT)</div>
+        </div>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar-card animate-in" style="animation-delay:.15s;">
+    <MudTextField @bind-Value="searchString" Placeholder="Rechercher par numéro ou client..." 
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                  IconSize="Size.Medium" Class="mt-0 flex-grow-1" Immediate="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+</div>
+
+<!-- Table -->
+<div class="animate-in" style="animation-delay:.2s;">
+    <MudTable Items="@FilteredFactures" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@isLoading" Striped="true" Elevation="0">
+        <HeaderContent>
+            <MudTh>Numéro</MudTh>
+            <MudTh>Date</MudTh>
+            <MudTh>Client</MudTh>
+            <MudTh Style="text-align:right">Montant HT</MudTh>
+            <MudTh Style="text-align:right">Total TTC</MudTh>
+            <MudTh Style="text-align:center">Statut</MudTh>
+            <MudTh Style="text-align:right">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Numéro">
+                <span class="badge bg-light text-dark border fw-bold px-2 py-1">@context.NumeroFacture</span>
+            </MudTd>
+            <MudTd DataLabel="Date">@context.DateFacture.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd DataLabel="Client"><strong>@context.Client?.Nom</strong></MudTd>
+            <MudTd DataLabel="HT" Style="text-align:right">@context.TotalHT.ToString("N3") DT</MudTd>
+            <MudTd DataLabel="TTC" Style="text-align:right">
+                <span class="fw-bold">@context.MontantTotal.ToString("N3") DT</span>
+            </MudTd>
+            <MudTd DataLabel="Statut" Style="text-align:center">
+                @if (context.Statut == "Validée")
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Validée</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Annulée</MudChip>
+                }
+            </MudTd>
+            <MudTd Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Visibility" Color="Color.Info" Size="Size.Small" 
+                               Href="@($"/factures/{context.Id}")" Title="Voir détails" />
+                @if (context.Statut == "Validée")
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" 
+                                   Title="Annuler" OnClick="@(() => AnnulerFacture(context))" />
+                }
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" RowsPerPageString="Factures par page :" />
+        </PagerContent>
+        <NoRecordsContent>
+            <div class="text-center py-5">
+                <i class="bi bi-receipt" style="font-size:3rem; color:var(--delta-text-muted);"></i>
+                <p class="mt-2 text-muted">Aucune facture trouvée.</p>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/factures/creer">Créer une facture</MudButton>
+            </div>
+        </NoRecordsContent>
+    </MudTable>
+</div>
+
+@code {
+    private IEnumerable<Facture> factures = new List<Facture>();
+    private bool isLoading = true;
+    private string searchString = "";
+
+    private IEnumerable<Facture> FilteredFactures => string.IsNullOrWhiteSpace(searchString) 
+        ? factures 
+        : factures.Where(x => x.NumeroFacture.Contains(searchString, StringComparison.OrdinalIgnoreCase) || 
+                              (x.Client != null && x.Client.Nom.Contains(searchString, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        factures = await FactureService.GetAllFacturesAsync();
+        isLoading = false;
+    }
+
+    private async Task AnnulerFacture(Facture facture)
+    {
+        bool? result = await DialogService.ShowMessageBoxAsync(
+            "Confirmation d'annulation",
+            $"Voulez-vous vraiment annuler la facture {facture.NumeroFacture} ? Cette action est irréversible.",
+            yesText: "Annuler la facture", cancelText: "Fermer");
+
+        if (result == true)
+        {
+            try
+            {
+                await FactureService.AnnulerFactureAsync(facture.Id);
+                Snackbar.Add("Facture annulée avec succès.", Severity.Success);
+                await LoadData();
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Une erreur est survenue lors de l'annulation.", Severity.Error);
+            }
+        }
+    }
+}

@@ -1,0 +1,453 @@
+@page "/login"
+@layout EmptyLayout
+@rendermode InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Connexion - Delta Facturation</PageTitle>
+
+<div class="login-root">
+    <!-- Animated background bubbles -->
+    <div class="bg-bubble bubble-1"></div>
+    <div class="bg-bubble bubble-2"></div>
+    
+    <div class="login-container">
+        <div class="login-card animate-in">
+            <!-- Brand Logo -->
+            <div class="brand-header text-center mb-6">
+                <div class="logo-wrapper mb-2">
+                    <i class="bi bi-lightning-charge-fill"></i>
+                </div>
+                <h2 class="brand-title">Delta<span>Facturation</span></h2>
+                <p class="brand-subtitle">Gestion Commerciale & Facturation</p>
+            </div>
+
+            <!-- Login Form Header -->
+            <div class="text-center mb-4">
+                <h4 class="form-title">Connexion</h4>
+                <p class="form-subtitle">Entrez vos identifiants pour accéder à votre tableau de bord.</p>
+            </div>
+
+            <!-- Error Banner -->
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger d-flex align-center gap-2 mb-4" role="alert" style="border-radius: var(--delta-radius-sm);">
+                    <i class="bi bi-exclamation-triangle-fill" style="font-size: 1.1rem;"></i>
+                    <div>@_errorMessage</div>
+                </div>
+            }
+
+            <!-- Form -->
+            <EditForm Model="@_loginModel" OnValidSubmit="HandleLogin" FormName="LoginForm">
+                <DataAnnotationsValidator />
+
+                <div class="form-group mb-3">
+                    <MudTextField @bind-Value="_loginModel.Email" 
+                                  Label="Adresse Email" 
+                                  Variant="Variant.Outlined" 
+                                  InputType="InputType.Email"
+                                  Required="true"
+                                  RequiredError="L'email est requis"
+                                  Adornment="Adornment.Start" 
+                                  AdornmentIcon="@Icons.Material.Filled.Email" 
+                                  AdornmentColor="Color.Primary"
+                                  For="@(() => _loginModel.Email)"
+                                  Class="mb-3" />
+                </div>
+
+                <div class="form-group mb-4">
+                    <MudTextField @bind-Value="_loginModel.Password" 
+                                  Label="Mot de passe" 
+                                  Variant="Variant.Outlined" 
+                                  InputType="@_passwordInputType"
+                                  Required="true"
+                                  RequiredError="Le mot de passe est requis"
+                                  Adornment="Adornment.End" 
+                                  AdornmentIcon="@_passwordInputIcon" 
+                                  AdornmentColor="Color.Primary"
+                                  OnAdornmentClick="TogglePasswordVisibility"
+                                  For="@(() => _loginModel.Password)" />
+                </div>
+
+                <div class="d-flex align-center justify-between mb-4">
+                    <MudCheckBox @bind-Value="_loginModel.RememberMe" 
+                                 Label="Se souvenir de moi" 
+                                 Color="Color.Primary" 
+                                 Dense="true" 
+                                 Style="margin-left:-8px;" />
+                    
+                    <a href="javascript:void(0)" @onclick="ForgotPassword" class="forgot-password-link">
+                        Mot de passe oublié ?
+                    </a>
+                </div>
+
+                <MudButton ButtonType="ButtonType.Submit" 
+                           Variant="Variant.Filled" 
+                           Color="Color.Primary" 
+                           FullWidth="true" 
+                           Disabled="_isSubmitting"
+                           Class="py-3 login-btn">
+                    @if (_isSubmitting)
+                    {
+                        <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                        <span class="ms-2">Vérification en cours...</span>
+                    }
+                    else
+                    {
+                        <span>Se connecter</span>
+                    }
+                </MudButton>
+            </EditForm>
+
+            <!-- Demo Helper Section -->
+            <div class="demo-section mt-6">
+                <div class="demo-header d-flex align-center gap-1 mb-2">
+                    <i class="bi bi-info-circle-fill"></i>
+                    <span>Accès rapide de démonstration</span>
+                </div>
+                <div class="d-flex flex-column gap-2">
+                    <button type="button" class="btn btn-outline-primary demo-btn text-start d-flex align-center justify-between" 
+                            @onclick='(() => FillDemoCredentials("admin@delta.com", "admin123"))' disabled="@_isSubmitting">
+                        <div>
+                            <strong>Administrateur</strong>
+                            <div class="demo-email">admin@delta.com</div>
+                        </div>
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary demo-btn text-start d-flex align-center justify-between" 
+                            @onclick='(() => FillDemoCredentials("commercial@delta.com", "commercial123"))' disabled="@_isSubmitting">
+                        <div>
+                            <strong>Commercial</strong>
+                            <div class="demo-email">commercial@delta.com</div>
+                        </div>
+                        <i class="bi bi-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+    .login-root {
+        position: relative;
+        min-height: 100vh;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at 10% 20%, rgba(21, 101, 192, 0.12) 0%, rgba(0, 191, 165, 0.04) 90%);
+        overflow: hidden;
+        padding: 2rem 1rem;
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Ambient animated bubbles background */
+    .bg-bubble {
+        position: absolute;
+        border-radius: 50%;
+        filter: blur(80px);
+        opacity: 0.35;
+        z-index: 1;
+        pointer-events: none;
+    }
+
+    .bubble-1 {
+        width: 400px;
+        height: 400px;
+        background: #1565C0;
+        top: -120px;
+        left: -100px;
+        animation: floatBubble 14s ease-in-out infinite alternate;
+    }
+
+    .bubble-2 {
+        width: 500px;
+        height: 500px;
+        background: #00BFA5;
+        bottom: -150px;
+        right: -120px;
+        animation: floatBubble 18s ease-in-out infinite alternate-reverse;
+    }
+
+    @@keyframes floatBubble {
+        0% { transform: translate(0, 0) scale(1); }
+        50% { transform: translate(60px, 40px) scale(1.08); }
+        100% { transform: translate(-40px, 60px) scale(0.92); }
+    }
+
+    .login-container {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        max-width: 450px;
+    }
+
+    .login-card {
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(35px) saturate(180%);
+        -webkit-backdrop-filter: blur(35px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.55);
+        box-shadow: 0 25px 60px rgba(15, 23, 42, 0.1), 
+                    0 8px 24px rgba(15, 23, 42, 0.05);
+        border-radius: 24px;
+        padding: 2.75rem 2.5rem;
+        transition: transform 0.3s ease;
+    }
+
+    /* Brand Logo styling */
+    .logo-wrapper {
+        width: 64px;
+        height: 64px;
+        background: linear-gradient(135deg, #1565C0 0%, #00BFA5 100%);
+        border-radius: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2.2rem;
+        box-shadow: 0 8px 24px rgba(21, 101, 192, 0.25);
+        margin-bottom: 0.75rem;
+        transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .logo-wrapper:hover {
+        transform: scale(1.08) rotate(5deg);
+    }
+
+    .brand-header {
+        margin-bottom: 1.75rem;
+    }
+
+    .brand-title {
+        font-family: 'Poppins', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 2rem !important;
+        background: linear-gradient(135deg, #1565C0 0%, #00897B 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.04em;
+        margin: 0.5rem 0 0;
+        line-height: 1.2;
+    }
+
+    /* Fix Chromium invisible span bug (use gradient + clip text for span) */
+    .brand-title span {
+        font-weight: 300 !important;
+        background: linear-gradient(135deg, #00BFA5 0%, #009688 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+        font-size: 0.74rem;
+        color: #64748B;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-top: 0.15rem;
+        margin-bottom: 0;
+    }
+
+    /* Headers styling */
+    .form-title {
+        font-family: 'Poppins', sans-serif !important;
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        color: #1E293B !important;
+        margin-bottom: 0.25rem;
+    }
+
+    .form-subtitle {
+        font-size: 0.85rem;
+        color: #64748B;
+        margin: 0;
+    }
+
+    .forgot-password-link {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #1565C0;
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+
+    .forgot-password-link:hover {
+        color: #00BFA5;
+        text-decoration: underline;
+    }
+
+    /* Custom Input outline border radii */
+    .mud-input-outlined-border {
+        border-radius: 12px !important;
+        border-color: rgba(148, 163, 184, 0.25) !important;
+    }
+
+    .login-btn {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.95rem !important;
+        font-weight: 700 !important;
+        padding: 0.85rem !important;
+        background: linear-gradient(135deg, #1565C0 0%, #00BFA5 100%) !important;
+        box-shadow: 0 8px 22px rgba(21, 101, 192, 0.3) !important;
+        border-radius: 14px !important;
+        text-transform: none !important;
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+
+    .login-btn:hover {
+        box-shadow: 0 12px 30px rgba(21, 101, 192, 0.45) !important;
+        transform: translateY(-2px) scale(1.02);
+    }
+
+    /* Demo Quick Access */
+    .demo-section {
+        border-top: 1px dashed rgba(100, 116, 139, 0.25);
+        padding-top: 1.5rem;
+    }
+
+    .demo-header {
+        font-size: 0.78rem;
+        color: #64748B;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .demo-btn {
+        border-radius: 14px !important;
+        padding: 0.65rem 0.95rem !important;
+        border: 1px solid rgba(148, 163, 184, 0.2) !important;
+        background: rgba(255, 255, 255, 0.55) !important;
+        backdrop-filter: blur(10px);
+        transition: all 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+
+    .demo-btn:hover {
+        background: white !important;
+        border-color: #00BFA5 !important;
+        box-shadow: 0 8px 20px rgba(0, 191, 165, 0.12) !important;
+        transform: translateY(-2px) scale(1.01);
+    }
+
+    .demo-btn strong {
+        font-size: 0.85rem;
+        color: #1E293B;
+    }
+
+    .demo-email {
+        font-size: 0.72rem;
+        color: #64748B;
+        font-weight: 400;
+    }
+
+    .demo-btn i {
+        color: #94A3B8;
+        font-size: 0.85rem;
+        transition: transform 0.2s ease;
+    }
+
+    .demo-btn:hover i {
+        color: #00BFA5;
+        transform: translateX(2px);
+    }
+</style>
+
+@code {
+    private LoginInputModel _loginModel = new();
+    private bool _isSubmitting;
+    private string? _errorMessage;
+
+    private bool _passwordVisibility;
+    private InputType _passwordInputType = InputType.Password;
+    private string _passwordInputIcon = Icons.Material.Filled.Visibility;
+
+    protected override void OnInitialized()
+    {
+        // If already logged in, skip login page
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private void TogglePasswordVisibility()
+    {
+        if (_passwordVisibility)
+        {
+            _passwordVisibility = false;
+            _passwordInputIcon = Icons.Material.Filled.Visibility;
+            _passwordInputType = InputType.Password;
+        }
+        else
+        {
+            _passwordVisibility = true;
+            _passwordInputIcon = Icons.Material.Filled.VisibilityOff;
+            _passwordInputType = InputType.Text;
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        _isSubmitting = true;
+        _errorMessage = null;
+
+        try
+        {
+            bool success = await AuthService.LoginAsync(_loginModel.Email, _loginModel.Password);
+            if (success)
+            {
+                Snackbar.Add($"Ravi de vous revoir, {AuthService.CurrentUser?.FullName} !", Severity.Success, config =>
+                {
+                    config.Icon = Icons.Material.Filled.Login;
+                    config.VisibleStateDuration = 1500; // Disparaît après 1,5 seconde
+                });
+                
+                Navigation.NavigateTo("/");
+            }
+            else
+            {
+                _errorMessage = "Identifiants invalides. Veuillez réessayer.";
+                Snackbar.Add("Échec de connexion. Vérifiez vos identifiants.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Une erreur est survenue lors de la connexion : {ex.Message}";
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private async Task FillDemoCredentials(string email, string password)
+    {
+        _loginModel.Email = email;
+        _loginModel.Password = password;
+        
+        // Auto trigger login when credentials clicked for absolute WOW experience!
+        await HandleLogin();
+    }
+
+    private void ForgotPassword()
+    {
+        Snackbar.Add("Fonctionnalité de réinitialisation disponible en production.", Severity.Info);
+    }
+
+    public class LoginInputModel
+    {
+        [Required(ErrorMessage = "L'adresse email est requise.")]
+        [EmailAddress(ErrorMessage = "Format d'email invalide.")]
+        public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Le mot de passe est requis.")]
+        public string Password { get; set; } = string.Empty;
+
+        public bool RememberMe { get; set; } = true;
+    }
+}

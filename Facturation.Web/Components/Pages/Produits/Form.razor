@@ -1,0 +1,112 @@
+@page "/produits/nouvel"
+@page "/produits/{Id:int}"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IProduitService ProduitService
+@inject IParametreService ParametreService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Class="mb-4">@(IsEdit ? "Modifier le Produit" : "Nouveau Produit")</MudText>
+
+<MudPaper Class="pa-4" Elevation="1">
+    <EditForm Model="@produit" OnValidSubmit="OnValidSubmit" FormName="produitForm">
+        <DataAnnotationsValidator />
+        
+        <MudGrid>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="produit.Code" For="@(() => produit.Code)" Label="Code Produit" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="produit.Libelle" For="@(() => produit.Libelle)" Label="Désignation" Variant="Variant.Outlined" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudNumericField @bind-Value="produit.PrixUnitaireHT" For="@(() => produit.PrixUnitaireHT)" Label="Prix Unitaire HT" Variant="Variant.Outlined" Min="0.001M" HideSpinButtons="true" Adornment="Adornment.End" AdornmentText="DT" Required="true" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect @bind-Value="produit.TauxTVA" For="@(() => produit.TauxTVA)" Label="Taux TVA" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter" Required="true">
+                    @foreach (var rate in tvaRates)
+                    {
+                        <MudSelectItem Value="@rate">@rate.ToString("N0") %</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <div class="d-flex align-center justify-end mt-6">
+            <MudButton HtmlTag="a" Href="/produits" Variant="Variant.Text" Color="Color.Default" Class="mr-2">Annuler</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@isSaving">
+                @if (isSaving)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Enregistrement...</MudText>
+                }
+                else
+                {
+                    <MudText>Enregistrer</MudText>
+                }
+            </MudButton>
+        </div>
+    </EditForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Produit produit = new Produit();
+    private bool IsEdit => Id.HasValue;
+    private bool isSaving = false;
+    private IEnumerable<decimal> tvaRates = new List<decimal>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        tvaRates = await ParametreService.GetTvaRatesAsync();
+        
+        if (IsEdit)
+        {
+            var existingProduit = await ProduitService.GetProduitByIdAsync(Id.Value);
+            if (existingProduit != null)
+            {
+                produit = existingProduit;
+            }
+            else
+            {
+                Snackbar.Add("Produit introuvable", Severity.Error);
+                NavigationManager.NavigateTo("/produits");
+            }
+        }
+        else
+        {
+            produit.TauxTVA = tvaRates.Contains(19m) ? 19m : tvaRates.FirstOrDefault();
+        }
+    }
+
+    private async Task OnValidSubmit()
+    {
+        isSaving = true;
+        try
+        {
+            if (IsEdit)
+            {
+                await ProduitService.UpdateProduitAsync(produit);
+                Snackbar.Add("Produit mis à jour avec succès", Severity.Success);
+            }
+            else
+            {
+                await ProduitService.CreateProduitAsync(produit);
+                Snackbar.Add("Produit créé avec succès", Severity.Success);
+            }
+            NavigationManager.NavigateTo("/produits");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Erreur lors de l'enregistrement", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

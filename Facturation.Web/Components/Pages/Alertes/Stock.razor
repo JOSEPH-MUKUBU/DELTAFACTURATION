@@ -1,0 +1,83 @@
+@page "/alertes-stock"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IExportService ExportService
+@inject IProduitService ProduitService
+
+<MudText Typo="Typo.h3" Class="mb-4">Alertes de Stock</MudText>
+
+@if (isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    @if (produitsEnAlerte.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success" Icon="@Icons.Material.Filled.CheckCircle" Class="mb-4">
+            Aucune alerte de stock. Tous les produits sont au-dessus de leur seuil minimal.
+        </MudAlert>
+    }
+    else
+    {
+        <MudAlert Severity="Severity.Warning" Icon="@Icons.Material.Filled.Warning" Class="mb-4">
+            <strong>@produitsEnAlerte.Count produit(s)</strong> en dessous du seuil de stock minimal.
+        </MudAlert>
+    }
+
+    <MudTable Items="@produitsEnAlerte" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="1" Striped="true">
+        <HeaderContent>
+            <MudTh>Code</MudTh>
+            <MudTh>Désignation</MudTh>
+            <MudTh Style="text-align:right">Stock Actuel</MudTh>
+            <MudTh Style="text-align:right">Seuil Minimal</MudTh>
+            <MudTh Style="text-align:center">Écart</MudTh>
+            <MudTh Style="text-align:center">Niveau de Risque</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Code">@context.Code</MudTd>
+            <MudTd DataLabel="Désignation">@context.Libelle</MudTd>
+            <MudTd DataLabel="Stock" Style="text-align:right">
+                <MudText Color="@(context.StockActuel == 0 ? Color.Error : Color.Warning)">
+                    <strong>@context.StockActuel.ToString("N0")</strong>
+                </MudText>
+            </MudTd>
+            <MudTd DataLabel="Seuil" Style="text-align:right">@context.SeuilMinimal.ToString("N0")</MudTd>
+            <MudTd DataLabel="Écart" Style="text-align:center">
+                @{
+                    var ecart = context.StockActuel - context.SeuilMinimal;
+                }
+                <MudText Color="Color.Error">@ecart.ToString("N0")</MudText>
+            </MudTd>
+            <MudTd DataLabel="Risque" Style="text-align:center">
+                @if (context.StockActuel == 0)
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Rupture</MudChip>
+                }
+                else if (context.StockActuel <= context.SeuilMinimal * 0.5m)
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Critique</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Warning" Size="Size.Small">Attention</MudChip>
+                }
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" RowsPerPageString="Produits par page :" />
+        </PagerContent>
+    </MudTable>
+}
+
+@code {
+    private List<Produit> produitsEnAlerte = new();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        produitsEnAlerte = await ExportService.GetProduitsEnAlerteStockAsync();
+        isLoading = false;
+    }
+}

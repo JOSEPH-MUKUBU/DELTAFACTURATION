@@ -1,0 +1,136 @@
+@page "/clients/nouvel"
+@page "/clients/{Id:int}"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IClientService ClientService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<!-- Page Header -->
+<div class="page-header animate-in">
+    <div class="d-flex align-items-center gap-2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Inherit" Href="/clients" Style="color:#fff;" />
+        <div>
+            <h3 class="mb-0">
+                <i class="bi bi-@(IsEdit ? "pencil-square" : "person-plus-fill") me-2"></i>
+                @(IsEdit ? "Modifier le Client" : "Nouveau Client")
+            </h3>
+            <p>@(IsEdit ? "Modifiez les informations de ce client" : "Remplissez les informations pour créer un nouveau client")</p>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center animate-in" style="animation-delay:.1s;">
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm" style="border-radius:12px;">
+            <div class="card-body p-4">
+                <EditForm Model="@client" OnValidSubmit="OnValidSubmit" FormName="clientForm">
+                    <DataAnnotationsValidator />
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="client.Nom" For="@(() => client.Nom)" 
+                                          Label="Raison Sociale / Nom" Variant="Variant.Outlined" Required="true" 
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Business" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="client.MatriculeFiscal" For="@(() => client.MatriculeFiscal)" 
+                                          Label="Matricule Fiscal" Variant="Variant.Outlined"
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Badge"
+                                          HelperText="Format: 1234567/A/B/C/000" />
+                        </div>
+                        <div class="col-12">
+                            <MudTextField @bind-Value="client.Adresse" For="@(() => client.Adresse)" 
+                                          Label="Adresse Complète" Variant="Variant.Outlined" Lines="2"
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.LocationOn" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="client.Telephone" For="@(() => client.Telephone)" 
+                                          Label="Téléphone" Variant="Variant.Outlined"
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Phone" />
+                        </div>
+                        <div class="col-md-6">
+                            <MudTextField @bind-Value="client.Email" For="@(() => client.Email)" 
+                                          Label="Email" Variant="Variant.Outlined" InputType="InputType.Email"
+                                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+                        </div>
+                    </div>
+
+                    <hr class="my-4" />
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <MudButton HtmlTag="a" Href="/clients" Variant="Variant.Text" Color="Color.Default">
+                            <i class="bi bi-x-lg me-1"></i> Annuler
+                        </MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                                <MudText Class="ms-2">Enregistrement...</MudText>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-lg me-1"></i>
+                                <MudText>Enregistrer</MudText>
+                            }
+                        </MudButton>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    private Client client = new Client();
+    private bool IsEdit => Id.HasValue;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IsEdit)
+        {
+            var existingClient = await ClientService.GetClientByIdAsync(Id.Value);
+            if (existingClient != null)
+            {
+                client = existingClient;
+            }
+            else
+            {
+                Snackbar.Add("Client introuvable", Severity.Error);
+                NavigationManager.NavigateTo("/clients");
+            }
+        }
+    }
+
+    private async Task OnValidSubmit()
+    {
+        isSaving = true;
+        try
+        {
+            if (IsEdit)
+            {
+                await ClientService.UpdateClientAsync(client);
+                Snackbar.Add("Client mis à jour avec succès", Severity.Success);
+            }
+            else
+            {
+                await ClientService.CreateClientAsync(client);
+                Snackbar.Add("Client créé avec succès", Severity.Success);
+            }
+            NavigationManager.NavigateTo("/clients");
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Erreur lors de l'enregistrement", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

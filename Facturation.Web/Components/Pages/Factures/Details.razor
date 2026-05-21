@@ -1,0 +1,190 @@
+@page "/factures/{Id:int}"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IFactureService FactureService
+@inject IJSRuntime JS
+@inject NavigationManager NavigationManager
+
+@if (isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else if (facture == null)
+{
+    <MudAlert Severity="Severity.Error">Facture introuvable.</MudAlert>
+}
+else
+{
+    <div class="d-flex justify-space-between align-center mb-4 d-print-none">
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack" Href="/factures">Retour</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Print" OnClick="PrintDocument">Imprimer/Exporter PDF</MudButton>
+    </div>
+
+    <!-- Interface d'impression de la facture -->
+    <MudPaper Class="pa-8 facture-container" Elevation="2">
+        @if (facture.Statut == "Annulée")
+        {
+            <div class="watermark-annule">ANNULÉE</div>
+        }
+
+        <MudGrid Class="mb-8">
+            <MudItem xs="6">
+                <!-- En-tête de l'entreprise -->
+                <MudText Typo="Typo.h3" Color="Color.Primary"><strong>DELTA</strong></MudText>
+                <MudText Typo="Typo.h5" Color="Color.Dark">Facturation</MudText>
+                <MudText Typo="Typo.body2" Class="mt-2">123 Avenue de la République</MudText>
+                <MudText Typo="Typo.body2">1000 Tunis, Tunisie</MudText>
+                <MudText Typo="Typo.body2">MF: 1234567/A/B/C/000</MudText>
+            </MudItem>
+            
+            <MudItem xs="6" Class="d-flex flex-column align-end">
+                <MudText Typo="Typo.h4" Class="mb-2"><strong>FACTURE</strong></MudText>
+                <MudText Typo="Typo.h6">N° @facture.NumeroFacture</MudText>
+                <MudText>Date: @facture.DateFacture.ToShortDateString()</MudText>
+            </MudItem>
+        </MudGrid>
+
+        <MudDivider Class="my-4" />
+
+        <MudGrid Class="my-6">
+            <MudItem xs="12" sm="6" Class="offset-sm-6">
+                <MudPaper Class="pa-4 bg-light" Elevation="0" Outlined="true">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Facturé à :</MudText>
+                    <MudText Typo="Typo.h6"><strong>@facture.Client?.Nom</strong></MudText>
+                    <MudText Typo="Typo.body2">@facture.Client?.Adresse</MudText>
+                    @if (!string.IsNullOrEmpty(facture.Client?.MatriculeFiscal))
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-1">MF: @facture.Client.MatriculeFiscal</MudText>
+                    }
+                    <MudText Typo="Typo.body2">Tel: @facture.Client?.Telephone</MudText>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <MudSimpleTable Class="mt-8 mb-4 border" Dense="false" Hover="false" Striped="true">
+            <thead>
+                <tr class="mud-theme-primary">
+                    <th>Référence</th>
+                    <th>Désignation</th>
+                    <th style="text-align:right">Qté</th>
+                    <th style="text-align:right">P.U HT (DT)</th>
+                    <th style="text-align:right">TVA</th>
+                    <th style="text-align:right">Montant HT (DT)</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var ligne in facture.Lignes)
+                {
+                    <tr>
+                        <td>@ligne.Produit?.Code</td>
+                        <td>@ligne.Produit?.Libelle</td>
+                        <td style="text-align:right">@ligne.Quantite.ToString("N3")</td>
+                        <td style="text-align:right">@ligne.PrixUnitaireHT.ToString("N3")</td>
+                        <td style="text-align:right">@ligne.TauxTVA.ToString("N0")%</td>
+                        <td style="text-align:right">@ligne.MontantHT.ToString("N3")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+
+        <MudGrid Class="mt-8">
+            <MudItem xs="12" md="6">
+                <MudPaper Class="pa-4" Outlined="true" Elevation="0">
+                    <MudText Typo="Typo.subtitle2">Arrêté la présente facture à la somme de :</MudText>
+                    <MudText Typo="Typo.body2">
+                        <!-- Simulation en toutes lettres -->
+                        <em>--- Montant en toutes lettres ---</em>
+                    </MudText>
+                </MudPaper>
+            </MudItem>
+            
+            <MudItem xs="12" md="6">
+                <MudSimpleTable Dense="true" Elevation="0">
+                    <tbody>
+                        <tr>
+                            <td><strong>Total HT :</strong></td>
+                            <td style="text-align:right">@facture.TotalHT.ToString("N3") DT</td>
+                        </tr>
+                        <tr>
+                            <td>Total TVA :</td>
+                            <td style="text-align:right">@facture.TotalTVA.ToString("N3") DT</td>
+                        </tr>
+                        <tr>
+                            <td>Total TTC :</td>
+                            <td style="text-align:right">@facture.TotalTTC.ToString("N3") DT</td>
+                        </tr>
+                        <tr>
+                            <td>Timbre Fiscal :</td>
+                            <td style="text-align:right">@facture.TimbreFiscal.ToString("N3") DT</td>
+                        </tr>
+                        <tr class="mud-theme-dark">
+                            <td><MudText Typo="Typo.h6">NET À PAYER :</MudText></td>
+                            <td style="text-align:right"><MudText Typo="Typo.h6"><strong>@facture.MontantTotal.ToString("N3") DT</strong></MudText></td>
+                        </tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+    
+    <style>
+        @@media print {
+            .d-print-none {
+                display: none !important;
+            }
+            .mud-main-content {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .mud-drawer {
+                display: none !important;
+            }
+            .mud-appbar {
+                display: none !important;
+            }
+            .facture-container {
+                box-shadow: none !important;
+                border: 1px solid #ddd !important;
+            }
+            body {
+                background-color: white !important;
+            }
+        }
+        
+        .watermark-annule {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 8rem;
+            color: rgba(255, 0, 0, 0.1);
+            font-weight: bold;
+            z-index: 0;
+            pointer-events: none;
+        }
+        
+        .bg-light {
+            background-color: #f8f9fa !important;
+        }
+    </style>
+}
+
+@code {
+    [Parameter]
+    public int Id { get; set; }
+
+    private Facture? facture;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        facture = await FactureService.GetFactureByIdAsync(Id);
+        isLoading = false;
+    }
+
+    private async Task PrintDocument()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

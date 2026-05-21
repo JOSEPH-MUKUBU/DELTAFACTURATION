@@ -1,0 +1,161 @@
+@using Facturation.Web.Components.Layout
+@using Radzen
+@using Radzen.Blazor
+@inherits LayoutComponentBase
+@inject IAuthenticationService AuthService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<MudThemeProvider Theme="_deltaTheme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+<MudPopoverProvider />
+<RadzenComponents />
+
+@if (AuthService.IsAuthenticated)
+{
+    <MudLayout>
+        <MudAppBar Elevation="0">
+            <div class="d-flex align-center gap-2">
+                <i class="bi bi-lightning-charge-fill" style="font-size:1.4rem;"></i>
+                <MudText Typo="Typo.h5" Style="font-family:'Poppins',sans-serif; font-weight:700; letter-spacing:-0.02em;">
+                    Delta<span style="font-weight:400; opacity:0.85;">Facturation</span>
+                </MudText>
+            </div>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit" Href="/alertes-stock" Title="Alertes" />
+            <MudIconButton Icon="@Icons.Material.Filled.Settings" Color="Color.Inherit" Href="/parametres" Title="Paramètres" />
+            
+            @if (AuthService.CurrentUser != null)
+            {
+                <MudMenu AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight" Dense="true" Class="ms-2">
+                    <ActivatorContent>
+                        <div class="d-flex align-center gap-2 px-2 py-1 ms-1" style="cursor: pointer; border-radius: 20px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.15);">
+                            <MudAvatar Style="@($"background-color: {AuthService.CurrentUser.AvatarColor}; color: white; font-weight: 700; font-size: 0.85rem;")" Size="Size.Small">
+                                @AuthService.CurrentUser.FullName.Substring(0, 1).ToUpper()
+                            </MudAvatar>
+                            <MudText Typo="Typo.body2" Color="Color.Inherit" Class="d-none d-sm-inline font-weight-bold" Style="color: white; font-size: 0.8rem;">
+                                @AuthService.CurrentUser.FullName
+                            </MudText>
+                            <MudIcon Icon="@Icons.Material.Filled.ArrowDropDown" Size="Size.Small" Style="color: white;" />
+                        </div>
+                    </ActivatorContent>
+                    <ChildContent>
+                        <div class="px-4 py-3 d-flex flex-column gap-1" style="min-width: 220px; border-bottom: 1px solid var(--delta-border);">
+                            <MudText Typo="Typo.subtitle2" Class="font-weight-bold" Style="color: var(--delta-text);">@AuthService.CurrentUser.FullName</MudText>
+                            <MudText Typo="Typo.caption" Class="text-muted" Style="color: var(--delta-text-muted);">@AuthService.CurrentUser.Email</MudText>
+                            <div class="mt-1">
+                                <span class="badge bg-primary" style="font-size:0.7rem; font-weight:600; background-color: var(--delta-primary) !important;">@AuthService.CurrentUser.Role</span>
+                            </div>
+                        </div>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Person" Href="/parametres">Mon Profil</MudMenuItem>
+                        <MudMenuItem Icon="@Icons.Material.Filled.Logout" OnClick="Logout" TextColor="Color.Error">Se déconnecter</MudMenuItem>
+                    </ChildContent>
+                </MudMenu>
+            }
+        </MudAppBar>
+
+        <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Mini" OpenMiniOnHover="false">
+            <MudDrawerHeader>
+                <div class="d-flex align-center gap-2">
+                    <i class="bi bi-speedometer2" style="font-size:1.2rem; color:rgba(255,255,255,.85);"></i>
+                    <MudText Typo="Typo.h6">Menu Principal</MudText>
+                </div>
+            </MudDrawerHeader>
+            <NavMenu />
+        </MudDrawer>
+
+        <MudMainContent>
+            <div class="container-fluid px-4 py-4" style="max-width:1400px;">
+                @Body
+            </div>
+        </MudMainContent>
+    </MudLayout>
+}
+
+@code {
+    bool _drawerOpen = true;
+
+    protected override void OnInitialized()
+    {
+        AuthService.OnChange += OnAuthChange;
+        CheckAuth();
+    }
+
+    private void OnAuthChange()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override void OnParametersSet()
+    {
+        CheckAuth();
+    }
+
+    private void CheckAuth()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            var currentUri = Navigation.Uri;
+            if (currentUri.IndexOf("/login", StringComparison.OrdinalIgnoreCase) == -1)
+            {
+                Navigation.NavigateTo("/login");
+            }
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnChange -= OnAuthChange;
+    }
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+
+    private MudTheme _deltaTheme = new MudTheme()
+    {
+        PaletteLight = new PaletteLight()
+        {
+            Primary = "#1565C0",
+            Secondary = "#00BFA5",
+            Success = "#43A047",
+            Warning = "#FB8C00",
+            Error = "#E53935",
+            Info = "#1565C0",
+            AppbarBackground = "#1565C0",
+            AppbarText = "#FFFFFF",
+            DrawerBackground = "#FAFBFC",
+            Background = "#F0F2F5",
+            Surface = "#FFFFFF",
+            TextPrimary = "#1E293B",
+            TextSecondary = "#64748B",
+            ActionDefault = "#64748B"
+        },
+        Typography = new Typography()
+        {
+            Default = new DefaultTypography()
+            {
+                FontFamily = new[] { "Inter", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "sans-serif" },
+                FontSize = "0.9rem"
+            },
+            H3 = new H3Typography()
+            {
+                FontFamily = new[] { "Poppins", "Inter", "sans-serif" },
+                FontWeight = "700",
+                FontSize = "1.5rem"
+            }
+        },
+        LayoutProperties = new LayoutProperties()
+        {
+            DefaultBorderRadius = "12px"
+        }
+    };
+}

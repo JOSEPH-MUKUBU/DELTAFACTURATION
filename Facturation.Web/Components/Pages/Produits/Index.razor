@@ -1,0 +1,176 @@
+@page "/produits"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IProduitService ProduitService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<!-- Page Header -->
+<div class="page-header animate-in">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h3><i class="bi bi-box-seam-fill me-2"></i>Gestion des Produits</h3>
+            <p>Catalogue de vos produits et services avec tarification</p>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.Add" Href="/produits/nouvel"
+                   Style="background:#fff; color:#1565C0; font-weight:600;">
+            <i class="bi bi-plus-lg me-1"></i> Nouveau Produit
+        </MudButton>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4 animate-in" style="animation-delay:.1s;">
+    <div class="col-md-3">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+            <div class="stat-value">@produits.Count()</div>
+            <div class="stat-label">Total Produits</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-success">
+            <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
+            <div class="stat-value">@produits.Count(p => p.EstActif)</div>
+            <div class="stat-label">Actifs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-danger">
+            <div class="stat-icon"><i class="bi bi-x-circle-fill"></i></div>
+            <div class="stat-value">@produits.Count(p => !p.EstActif)</div>
+            <div class="stat-label">Inactifs</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card stat-warning">
+            <div class="stat-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+            <div class="stat-value">@produits.Count(p => p.StockActuel <= p.SeuilMinimal && p.EstActif)</div>
+            <div class="stat-label">Stock Bas</div>
+        </div>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar-card animate-in" style="animation-delay:.15s;">
+    <MudTextField @bind-Value="searchString" Placeholder="Rechercher par code ou libellé..." 
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                  IconSize="Size.Medium" Class="mt-0 flex-grow-1" Immediate="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+    <MudSwitch @bind-Value="showInactive" Color="Color.Primary" Label="Afficher les inactifs" />
+</div>
+
+<!-- Data Table -->
+<div class="animate-in" style="animation-delay:.2s;">
+    <MudTable Items="@FilteredProduits" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@isLoading" 
+              LoadingProgressColor="Color.Info" Striped="true" Elevation="0">
+        <HeaderContent>
+            <MudTh>Code</MudTh>
+            <MudTh>Désignation</MudTh>
+            <MudTh Style="text-align:right">Prix HT (DT)</MudTh>
+            <MudTh Style="text-align:right">TVA</MudTh>
+            <MudTh Style="text-align:right">Stock</MudTh>
+            <MudTh Style="text-align:center">Statut</MudTh>
+            <MudTh Style="text-align:right">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Code">
+                <span class="badge bg-light text-dark border fw-semibold px-2 py-1">@context.Code</span>
+            </MudTd>
+            <MudTd DataLabel="Libellé"><strong>@context.Libelle</strong></MudTd>
+            <MudTd DataLabel="Prix HT" Style="text-align:right">
+                <span class="fw-semibold">@context.PrixUnitaireHT.ToString("N3")</span>
+            </MudTd>
+            <MudTd DataLabel="TVA" Style="text-align:right">
+                <span class="badge" style="background:rgba(21,101,192,.1);color:#1565C0;">@context.TauxTVA.ToString("N0") %</span>
+            </MudTd>
+            <MudTd DataLabel="Stock" Style="text-align:right">
+                @if (context.StockActuel <= context.SeuilMinimal && context.EstActif)
+                {
+                    <span class="badge bg-danger">@context.StockActuel.ToString("N0")</span>
+                }
+                else
+                {
+                    <span>@context.StockActuel.ToString("N0")</span>
+                }
+            </MudTd>
+            <MudTd DataLabel="Statut" Style="text-align:center">
+                @if (context.EstActif)
+                {
+                    <MudChip T="string" Color="Color.Success" Size="Size.Small">Actif</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Color="Color.Error" Size="Size.Small">Inactif</MudChip>
+                }
+            </MudTd>
+            <MudTd Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" Href="@($"/produits/{context.Id}")" Title="Modifier" />
+                <MudIconButton Icon="@(context.EstActif ? Icons.Material.Filled.Block : Icons.Material.Filled.CheckCircle)" 
+                               Color="@(context.EstActif ? Color.Warning : Color.Success)" 
+                               Size="Size.Small" 
+                               Title="@(context.EstActif ? "Désactiver" : "Activer")"
+                               OnClick="@(() => ToggleStatus(context))" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" RowsPerPageString="Produits par page :" />
+        </PagerContent>
+        <NoRecordsContent>
+            <div class="text-center py-5">
+                <i class="bi bi-box" style="font-size:3rem; color:var(--delta-text-muted);"></i>
+                <p class="mt-2 text-muted">Aucun produit trouvé.</p>
+            </div>
+        </NoRecordsContent>
+    </MudTable>
+</div>
+
+@code {
+    private IEnumerable<Produit> produits = new List<Produit>();
+    private bool isLoading = true;
+    private string searchString = "";
+    private bool _showInactive = false;
+
+    private bool showInactive 
+    {
+        get => _showInactive;
+        set 
+        {
+            _showInactive = value;
+            _ = LoadData();
+        }
+    }
+
+    private IEnumerable<Produit> FilteredProduits => string.IsNullOrWhiteSpace(searchString) 
+        ? produits 
+        : produits.Where(x => x.Libelle.Contains(searchString, StringComparison.OrdinalIgnoreCase) || 
+                              x.Code.Contains(searchString, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        produits = await ProduitService.GetAllProduitsAsync(showInactive);
+        isLoading = false;
+    }
+
+    private async Task ToggleStatus(Produit produit)
+    {
+        try
+        {
+            await ProduitService.ToggleStatusAsync(produit.Id);
+            string action = produit.EstActif ? "désactivé" : "activé";
+            Snackbar.Add($"Produit {action} avec succès.", Severity.Success);
+            await LoadData();
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Une erreur est survenue.", Severity.Error);
+        }
+    }
+}

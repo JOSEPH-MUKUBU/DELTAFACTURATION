@@ -1,0 +1,443 @@
+@page "/"
+@rendermode InteractiveServer
+@using Facturation.Services.Services
+@using Facturation.Core.Entities
+@using Radzen
+@using Radzen.Blazor
+@inject IFactureService FactureService
+@inject IClientService ClientService
+@inject IProduitService ProduitService
+@inject IAnalyseService AnalyseService
+@inject IExportService ExportService
+
+<PageTitle>Accueil - Delta Facturation</PageTitle>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height:400px;">
+        <div class="text-center">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            <p class="mt-3 text-muted fw-semibold">Chargement du tableau de bord...</p>
+        </div>
+    </div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger m-4 shadow-sm" role="alert" style="border-radius: 12px; border-left: 5px solid var(--delta-error);">
+        <h4 class="alert-heading d-flex align-center gap-2 text-danger fw-bold mb-2">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size:1.3rem;"></i>
+            Erreur lors du chargement des données
+        </h4>
+        <p class="mb-3 text-muted font-size-sm">Une erreur s'est produite lors de la connexion à la base de données ou de l'analyse des KPI. Voici le détail technique de l'erreur :</p>
+        <pre class="p-3 bg-light border text-danger rounded font-monospace" style="white-space: pre-wrap; font-size: 0.8rem; max-height: 250px; overflow-y: auto;">@errorMessage</pre>
+    </div>
+}
+else
+{
+    <!-- Welcome Banner -->
+    <div class="page-header animate-in mb-4" style="padding:2rem 2rem 1.75rem;">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-1">
+                    <i class="bi bi-speedometer2 me-2"></i>Tableau de Bord
+                </h3>
+                <p class="mb-0 opacity-75">@DateTime.Now.ToString("dddd dd MMMM yyyy", new System.Globalization.CultureInfo("fr-FR"))</p>
+            </div>
+            <div class="d-flex gap-2">
+                <MudButton Variant="@MudBlazor.Variant.Filled" Color="Color.Default" Href="/factures/creer"
+                           Style="background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.3); backdrop-filter:blur(4px);"
+                           StartIcon="@Icons.Material.Filled.Add">
+                    Nouvelle Facture
+                </MudButton>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="row g-3 mb-4 animate-in" style="animation-delay:.05s;">
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-primary h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label mb-2">CA de l'année (HT)</div>
+                        <div class="stat-value">@caAnnee.ToString("N0")</div>
+                        <div class="small text-muted mt-1">DT hors taxes</div>
+                    </div>
+                    <div class="stat-icon"><i class="bi bi-cash-stack"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-accent h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label mb-2">Factures ce mois</div>
+                        <div class="stat-value">@facturesMois</div>
+                        <div class="small text-muted mt-1">validées</div>
+                    </div>
+                    <div class="stat-icon"><i class="bi bi-receipt-cutoff"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card stat-success h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label mb-2">Total Clients</div>
+                        <div class="stat-value">@totalClients</div>
+                        <div class="small text-muted mt-1">dans le répertoire</div>
+                    </div>
+                    <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-card @(alertesStock > 0 ? "stat-danger" : "stat-success") h-100">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <div class="stat-label mb-2">Alertes Stock</div>
+                        <div class="stat-value">@alertesStock</div>
+                        <div class="small text-muted mt-1">
+                            @(alertesStock > 0 ? "produit(s) sous seuil" : "tout est OK")
+                        </div>
+                    </div>
+                    <div class="stat-icon">
+                        <i class="bi bi-@(alertesStock > 0 ? "exclamation-triangle-fill" : "check-circle-fill")"></i>
+                    </div>
+                </div>
+                @if (alertesStock > 0)
+                {
+                    <a href="/alertes-stock" class="btn btn-sm btn-danger w-100 mt-2" style="border-radius:6px; font-size:.75rem; font-weight:600;">
+                        <i class="bi bi-arrow-right me-1"></i>Voir les alertes
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row -->
+    <div class="row g-3 mb-4 animate-in" style="animation-delay:.1s;">
+        <!-- CA mensuel lineaire -->
+        <div class="col-lg-8">
+            <div class="card border-0" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                                <i class="bi bi-graph-up-arrow text-primary me-2"></i>Évolution du CA (12 derniers mois)
+                            </h6>
+                            <small class="text-muted">Chiffre d'affaires mensuel HT en DT</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body px-3 pt-2 pb-3">
+                    @if (evolutionData.Count > 0)
+                    {
+                        <RadzenChart Style="height: 260px; width: 100%;">
+                            <RadzenAreaSeries Data="@evolutionData" CategoryProperty="Category" ValueProperty="Value" Title="CA Mensuel (DT)" Smooth="true" Stroke="#1565C0" Fill="rgba(21, 101, 192, 0.12)">
+                                <RadzenMarkers MarkerType="MarkerType.Circle" Size="4" Fill="#1565C0" />
+                            </RadzenAreaSeries>
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenValueAxis Formatter="@(value => $"{((double)value).ToString("N0")} DT")">
+                                <RadzenGridLines Visible="true" StrokeWidth="1" Stroke="rgba(0,0,0,0.06)" />
+                            </RadzenValueAxis>
+                            <RadzenChartTooltipOptions Shared="true" />
+                            <RadzenLegend Visible="false" />
+                        </RadzenChart>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5">
+                            <i class="bi bi-bar-chart-line" style="font-size:2.5rem; color:#CBD5E1;"></i>
+                            <p class="text-muted mt-2">Aucune donnée disponible</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- CA par mois actuel (Donut-like with Pie) -->
+        <div class="col-lg-4">
+            <div class="card border-0 h-100" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                        <i class="bi bi-pie-chart-fill text-primary me-2"></i>Répartition TVA
+                    </h6>
+                    <small class="text-muted">Année en cours</small>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center px-3 pb-3 pt-2">
+                    @if (tvaPieDataPoints.Count > 0)
+                    {
+                        <RadzenChart Style="height: 240px; width: 100%;">
+                            <RadzenDonutSeries Data="@tvaPieDataPoints" CategoryProperty="Category" ValueProperty="Value" Title="TVA" Fills="@(new [] { "#1565C0", "#00BFA5", "#FB8C00", "#E53935" })" />
+                            <RadzenLegend Position="LegendPosition.Bottom" />
+                        </RadzenChart>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-pie-chart" style="font-size:2.5rem; color:#CBD5E1;"></i>
+                            <p class="text-muted mt-2 small">Aucune TVA collectée</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="row g-3 animate-in" style="animation-delay:.15s;">
+        <!-- Top Clients -->
+        <div class="col-lg-6">
+            <div class="card border-0" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                        <i class="bi bi-trophy-fill text-warning me-2"></i>Top Clients
+                    </h6>
+                    <small class="text-muted">Par chiffre d'affaires HT (année en cours)</small>
+                </div>
+                <div class="card-body px-4 pb-3 pt-2">
+                    @if (topClients.Count > 0)
+                    {
+                        @foreach (var (client, index) in topClients.Take(5).Select((c, i) => (c, i)))
+                        {
+                            <div class="d-flex align-items-center py-2 @(index < topClients.Count - 1 ? "border-bottom" : "")">
+                                <div class="me-3 fw-bold text-muted" style="width:20px; font-size:.8rem;">@(index + 1)</div>
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0"
+                                     style="width:36px;height:36px;background:rgba(21,101,192,.1);color:#1565C0;font-weight:700;font-size:.8rem;">
+                                    @client.Nom.Substring(0, Math.Min(2, client.Nom.Length)).ToUpper()
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold" style="font-size:.875rem; color: var(--delta-text);">@client.Nom</div>
+                                    <div class="progress mt-1" style="height:4px; border-radius:4px;">
+                                        <div class="progress-bar" style="width:@((client.TotalAchatHT / (topClients.First().TotalAchatHT + 0.01m) * 100).ToString("N0"))%; background:linear-gradient(90deg,#1565C0,#42A5F5);"></div>
+                                    </div>
+                                </div>
+                                <div class="ms-3 text-end">
+                                    <div class="fw-bold" style="color:#1565C0; font-size:.875rem;">@client.TotalAchatHT.ToString("N0") DT</div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-people" style="font-size:2rem; color:#CBD5E1;"></i>
+                            <p class="text-muted mt-2 small">Aucune vente cette année</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Produits Bar Chart -->
+        <div class="col-lg-6">
+            <div class="card border-0" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                        <i class="bi bi-bar-chart-fill text-success me-2"></i>Top Produits Vendus
+                    </h6>
+                    <small class="text-muted">Par valeur HT (année en cours)</small>
+                </div>
+                <div class="card-body px-3 pb-3 pt-2">
+                    @if (produitsDataPoints.Count > 0)
+                    {
+                        <RadzenChart Style="height: 230px; width: 100%;">
+                            <RadzenColumnSeries Data="@produitsDataPoints" CategoryProperty="Category" ValueProperty="Value" Title="Valeur HT" Fill="#00BFA5" />
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenValueAxis Formatter="@(value => $"{((double)value).ToString("N0")} DT")">
+                                <RadzenGridLines Visible="true" StrokeWidth="1" Stroke="rgba(0,0,0,0.06)" />
+                            </RadzenValueAxis>
+                            <RadzenLegend Visible="false" />
+                        </RadzenChart>
+                    }
+                    else
+                    {
+                        <div class="text-center py-4">
+                            <i class="bi bi-box" style="font-size:2rem; color:#CBD5E1;"></i>
+                            <p class="text-muted mt-2 small">Aucun produit vendu cette année</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Dernières factures -->
+        <div class="col-12 mt-2">
+            <div class="card border-0" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0 d-flex align-items-center justify-content-between">
+                    <div>
+                        <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                            <i class="bi bi-clock-history text-info me-2"></i>Dernières Factures
+                        </h6>
+                        <small class="text-muted">Les 5 dernières factures créées</small>
+                    </div>
+                    <a href="/factures" class="btn btn-sm btn-outline-primary" style="border-radius:6px; font-size:.75rem; font-weight:600;">
+                        Voir tout <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body px-4 pb-0 pt-2">
+                    <table class="table table-hover align-middle mb-0" style="font-size:.875rem;">
+                        <thead style="background:#F8FAFC;">
+                            <tr>
+                                <th class="border-0 py-2 text-uppercase fw-semibold" style="font-size:.72rem; color:#64748B; letter-spacing:.06em;">N° Facture</th>
+                                <th class="border-0 py-2 text-uppercase fw-semibold" style="font-size:.72rem; color:#64748B; letter-spacing:.06em;">Client</th>
+                                <th class="border-0 py-2 text-uppercase fw-semibold" style="font-size:.72rem; color:#64748B; letter-spacing:.06em;">Date</th>
+                                <th class="border-0 py-2 text-uppercase fw-semibold text-end" style="font-size:.72rem; color:#64748B; letter-spacing:.06em;">Montant</th>
+                                <th class="border-0 py-2 text-uppercase fw-semibold text-center" style="font-size:.72rem; color:#64748B; letter-spacing:.06em;">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var f in dernieresFactures)
+                            {
+                                <tr>
+                                    <td class="py-2">
+                                        <a href="/factures/@f.Id" class="fw-semibold text-decoration-none" style="color:#1565C0;">@f.NumeroFacture</a>
+                                    </td>
+                                    <td class="py-2 text-muted">@f.Client?.Nom</td>
+                                    <td class="py-2 text-muted">@f.DateFacture.ToString("dd/MM/yyyy")</td>
+                                    <td class="py-2 text-end fw-semibold">@f.MontantTotal.ToString("N3") DT</td>
+                                    <td class="py-2 text-center">
+                                        @if (f.Statut == "Validée")
+                                        {
+                                            <span class="badge" style="background:rgba(67,160,71,.15); color:#43A047; font-size:.72rem;">Validée</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge" style="background:rgba(229,57,53,.12); color:#E53935; font-size:.72rem;">Annulée</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                            @if (!dernieresFactures.Any())
+                            {
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">
+                                        <i class="bi bi-receipt me-1"></i> Aucune facture créée.
+                                        <a href="/factures/creer" class="ms-2 text-primary fw-semibold">Créer une facture</a>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool isLoading = true;
+    private string? errorMessage;
+
+    // KPIs
+    private decimal caAnnee = 0;
+    private int facturesMois = 0;
+    private int totalClients = 0;
+    private int alertesStock = 0;
+
+    // Radzen Chart Data Points
+    public class ChartDataItem
+    {
+        public string Category { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private List<ChartDataItem> evolutionData = new();
+    private List<ChartDataItem> tvaPieDataPoints = new();
+    private List<ChartDataItem> produitsDataPoints = new();
+
+    // Tables
+    private List<TopClientDto> topClients = new();
+    private List<Facture> dernieresFactures = new();
+
+    protected override void OnInitialized()
+    {
+        isLoading = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadDashboardData();
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            errorMessage = null;
+            var debut = new DateTime(DateTime.Today.Year, 1, 1);
+            var fin = DateTime.Today;
+
+            // Sequentially fetch dependencies as EF contexts are not thread-safe
+            var ventesDash    = await AnalyseService.GetVentesDashboardDataAsync(debut, fin);
+            var fiscalDash    = await AnalyseService.GetFiscalDashboardDataAsync(debut, fin);
+            var allClients    = await ClientService.GetAllClientsAsync();
+            var alertes       = await ExportService.GetProduitsEnAlerteStockAsync();
+            var allFactures   = (await FactureService.GetAllFacturesAsync()).ToList();
+
+            // KPIs
+            caAnnee      = ventesDash.ChiffreAffairesTotalHT;
+            totalClients = allClients.Count();
+            alertesStock = alertes.Count;
+            facturesMois = allFactures.Count(f =>
+                f.DateFacture.Year  == DateTime.Today.Year &&
+                f.DateFacture.Month == DateTime.Today.Month &&
+                f.Statut == "Validée");
+
+            // CA Evolution
+            var debut12 = new DateTime(DateTime.Today.AddMonths(-11).Year, DateTime.Today.AddMonths(-11).Month, 1);
+            var ventesDash12 = await AnalyseService.GetVentesDashboardDataAsync(debut12, fin);
+            if (ventesDash12.CA_ParPeriode.Count > 0)
+            {
+                evolutionData = ventesDash12.CA_ParPeriode.Select(kv => new ChartDataItem
+                {
+                    Category = DateTime.TryParse(kv.Key + "-01", out var d)
+                        ? d.ToString("MMM yy", new System.Globalization.CultureInfo("fr-FR"))
+                        : kv.Key,
+                    Value = (double)kv.Value
+                }).ToList();
+            }
+
+            // TVA Pie Data Points
+            if (fiscalDash.TvaParTaux.Count > 0)
+            {
+                tvaPieDataPoints = fiscalDash.TvaParTaux
+                    .Where(x => x.Value > 0)
+                    .Select(x => new ChartDataItem
+                    {
+                        Category = $"TVA {x.Key:N0}%",
+                        Value = (double)x.Value
+                    }).ToList();
+            }
+
+            // Top products Column data
+            if (ventesDash.TopProduits.Count > 0)
+            {
+                produitsDataPoints = ventesDash.TopProduits.Take(5).Select(p => new ChartDataItem
+                {
+                    Category = p.Libelle.Length > 12 ? p.Libelle[..12] + "…" : p.Libelle,
+                    Value = (double)p.ValeurTotaleHT
+                }).ToList();
+            }
+
+            // Top clients list
+            topClients = ventesDash.TopClients.Take(5).ToList();
+
+            // Latest invoices
+            dernieresFactures = allFactures.OrderByDescending(f => f.DateFacture).Take(5).ToList();
+
+            isLoading = false;
+        }
+        catch (Exception ex)
+        {
+            errorMessage = ex.ToString();
+            isLoading = false;
+        }
+        
+        StateHasChanged();
+    }
+}

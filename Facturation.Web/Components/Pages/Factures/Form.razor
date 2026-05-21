@@ -1,0 +1,253 @@
+@page "/factures/creer"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IFactureService FactureService
+@inject IClientService ClientService
+@inject IProduitService ProduitService
+@inject NavigationManager NavigationManager
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Class="mb-4">Nouvelle Facture</MudText>
+
+@if (isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <EditForm Model="@facture" OnValidSubmit="OnValidSubmit" FormName="factureForm">
+        <DataAnnotationsValidator />
+        <MudGrid>
+            <!-- Section Client et Date -->
+            <MudItem xs="12" md="8">
+                <MudPaper Class="pa-4 mb-4" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-4">Informations Principales</MudText>
+                    <MudGrid>
+                        <MudItem xs="12" md="6">
+                            <MudSelect T="int" Label="Sélectionner un Client" @bind-Value="facture.ClientId" Variant="Variant.Outlined" Required="true" RequiredError="Veuillez sélectionner un client">
+                                @foreach (var client in clients)
+                                {
+                                    <MudSelectItem Value="@client.Id">@client.Nom</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" md="6">
+                            <MudDatePicker Label="Date de la Facture" @bind-Date="dateFacture" Required="true" Variant="Variant.Outlined" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+
+            <!-- Section Lignes de Facture -->
+            <MudItem xs="12">
+                <MudPaper Class="pa-4 mb-4" Elevation="1">
+                    <div class="d-flex justify-space-between align-center mb-4">
+                        <MudText Typo="Typo.h6">Détail des Produits</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="AddLigne">Ajouter une ligne</MudButton>
+                    </div>
+
+                    @if (facture.Lignes.Count == 0)
+                    {
+                        <MudAlert Severity="Severity.Warning" Class="my-2">Veuillez ajouter au moins un produit à la facture.</MudAlert>
+                    }
+                    else
+                    {
+                        <MudTable Items="@facture.Lignes" Hover="true" Breakpoint="Breakpoint.Sm" Elevation="0" Outlined="true" Class="mb-4">
+                            <HeaderContent>
+                                <MudTh>Produit</MudTh>
+                                <MudTh Style="width:150px">Quantité</MudTh>
+                                <MudTh Style="width:150px; text-align:right">Prix Unitaire HT</MudTh>
+                                <MudTh Style="width:100px; text-align:right">TVA (%)</MudTh>
+                                <MudTh Style="width:150px; text-align:right">Total HT</MudTh>
+                                <MudTh Style="width:60px"></MudTh>
+                            </HeaderContent>
+                            <RowTemplate Context="ligne">
+                                <MudTd DataLabel="Produit">
+                                    <MudSelect T="int" Value="@ligne.ProduitId" ValueChanged="@((val) => OnProduitChanged(ligne, val))" Variant="Variant.Outlined" Margin="Margin.Dense" Required="true" RequiredError="Produit requis">
+                                        @foreach (var produit in activeProduits)
+                                        {
+                                            <MudSelectItem Value="@produit.Id">@produit.Code - @produit.Libelle</MudSelectItem>
+                                        }
+                                    </MudSelect>
+                                </MudTd>
+                                <MudTd DataLabel="Quantité">
+                                    <MudNumericField Value="@ligne.Quantite" ValueChanged="@((decimal val) => { ligne.Quantite = val > 0 ? val : 1; RecalculerTotaux(); })" Variant="Variant.Outlined" Margin="Margin.Dense" Min="0.001M" HideSpinButtons="true" Required="true" />
+                                </MudTd>
+                                <MudTd DataLabel="P.U HT" Style="text-align:right">
+                                    @ligne.PrixUnitaireHT.ToString("N3") DT
+                                </MudTd>
+                                <MudTd DataLabel="TVA" Style="text-align:right">
+                                    @ligne.TauxTVA.ToString("N0") %
+                                </MudTd>
+                                <MudTd DataLabel="Total HT" Style="text-align:right">
+                                    @( (ligne.PrixUnitaireHT * ligne.Quantite).ToString("N3") ) DT
+                                </MudTd>
+                                <MudTd>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" OnClick="@(() => RemoveLigne(ligne))" />
+                                </MudTd>
+                            </RowTemplate>
+                        </MudTable>
+                    }
+                </MudPaper>
+            </MudItem>
+
+            <!-- Résumé et Totaux -->
+            <MudItem xs="12" md="4" Class="ms-auto">
+                <MudPaper Class="pa-4 bg-light" Elevation="1">
+                    <MudText Typo="Typo.h6" Class="mb-4">Récapitulatif</MudText>
+                    
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Total HT :</MudText>
+                        <MudText>@facture.TotalHT.ToString("N3") DT</MudText>
+                    </div>
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Total TVA :</MudText>
+                        <MudText>@facture.TotalTVA.ToString("N3") DT</MudText>
+                    </div>
+                    <div class="d-flex justify-space-between mb-2">
+                        <MudText>Total TTC :</MudText>
+                        <MudText>@facture.TotalTTC.ToString("N3") DT</MudText>
+                    </div>
+                    <div class="d-flex justify-space-between mb-4">
+                        <MudText>Timbre Fiscal :</MudText>
+                        <MudText>@facture.TimbreFiscal.ToString("N3") DT</MudText>
+                    </div>
+                    <MudDivider Class="mb-4" />
+                    <div class="d-flex justify-space-between mud-theme-primary pa-2 rounded">
+                        <MudText Typo="Typo.h6"><strong>NET À PAYER :</strong></MudText>
+                        <MudText Typo="Typo.h6"><strong>@facture.MontantTotal.ToString("N3") DT</strong></MudText>
+                    </div>
+
+                    <div class="mt-6 d-flex justify-end">
+                        <MudButton HtmlTag="a" Href="/factures" Variant="Variant.Text" Color="Color.Default" Class="mr-2">Annuler</MudButton>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(isSaving || facture.Lignes.Count == 0)">
+                            @if (isSaving)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                                <MudText Class="ms-2">Création...</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Valider la Facture</MudText>
+                            }
+                        </MudButton>
+                    </div>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+    <style>
+        .bg-light { background-color: #f8f9fa; }
+    </style>
+}
+
+@code {
+    private Facture facture = new Facture { Lignes = new List<LigneFacture>() };
+    private DateTime? dateFacture = DateTime.Today;
+    
+    private IEnumerable<Client> clients = new List<Client>();
+    private IEnumerable<Produit> activeProduits = new List<Produit>();
+    
+    private bool isLoading = true;
+    private bool isSaving = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clients = await ClientService.GetAllClientsAsync();
+        activeProduits = await ProduitService.GetAllProduitsAsync(false);
+        
+        // Initialiser avec une ligne vide
+        AddLigne();
+        
+        isLoading = false;
+        
+        // Initialiser le timbre fiscal
+        await RecalculerTotauxAsync();
+    }
+
+    private void AddLigne()
+    {
+        facture.Lignes.Add(new LigneFacture { Quantite = 1 });
+    }
+
+    private void RemoveLigne(LigneFacture ligne)
+    {
+        facture.Lignes.Remove(ligne);
+        RecalculerTotaux();
+    }
+
+    private void OnProduitChanged(LigneFacture ligne, int produitId)
+    {
+        ligne.ProduitId = produitId;
+        var produit = activeProduits.FirstOrDefault(p => p.Id == produitId);
+        
+        if (produit != null)
+        {
+            ligne.PrixUnitaireHT = produit.PrixUnitaireHT;
+            ligne.TauxTVA = produit.TauxTVA;
+            ligne.Produit = produit;
+        }
+        else
+        {
+            ligne.PrixUnitaireHT = 0;
+            ligne.TauxTVA = 0;
+            ligne.Produit = null;
+        }
+        
+        RecalculerTotaux();
+    }
+
+    private void RecalculerTotaux()
+    {
+        _ = InvokeAsync(async () =>
+        {
+            facture = await FactureService.CalculerTotauxAsync(facture);
+            StateHasChanged();
+        });
+    }
+    
+    private async Task RecalculerTotauxAsync()
+    {
+        facture = await FactureService.CalculerTotauxAsync(facture);
+    }
+
+    private async Task OnValidSubmit()
+    {
+        if (facture.Lignes.Count == 0)
+        {
+            Snackbar.Add("Veuillez ajouter au moins un produit.", Severity.Warning);
+            return;
+        }
+
+        if (facture.Lignes.Any(l => l.ProduitId == 0))
+        {
+            Snackbar.Add("Veuillez sélectionner un produit pour toutes les lignes.", Severity.Warning);
+            return;
+        }
+
+        isSaving = true;
+        try
+        {
+            facture.DateFacture = dateFacture ?? DateTime.Today;
+            
+            // Clean Navigation properties to avoid EF core errors trying to insert existing entities
+            foreach(var ligne in facture.Lignes)
+            {
+                ligne.Produit = null;
+            }
+
+            var created = await FactureService.CreateFactureAsync(facture);
+            Snackbar.Add($"Facture {created.NumeroFacture} créée avec succès", Severity.Success);
+            NavigationManager.NavigateTo($"/factures/{created.Id}");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur : {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+}

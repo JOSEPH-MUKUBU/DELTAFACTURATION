@@ -1,0 +1,164 @@
+@page "/clients"
+@rendermode InteractiveServer
+@using Facturation.Core.Entities
+@using Facturation.Services.Services
+@inject IClientService ClientService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager NavigationManager
+
+<!-- Page Header -->
+<div class="page-header animate-in">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h3><i class="bi bi-people-fill me-2"></i>Gestion des Clients</h3>
+            <p>Gérez votre répertoire clients, ajoutez et modifiez vos contacts</p>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Default" StartIcon="@Icons.Material.Filled.PersonAdd" Href="/clients/nouvel"
+                   Style="background:#fff; color:#1565C0; font-weight:600;">
+            <i class="bi bi-plus-lg me-1"></i> Nouveau Client
+        </MudButton>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-3 mb-4 animate-in" style="animation-delay:.1s;">
+    <div class="col-md-4">
+        <div class="stat-card stat-primary">
+            <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
+            <div class="stat-value">@clients.Count()</div>
+            <div class="stat-label">Total Clients</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card stat-accent">
+            <div class="stat-icon"><i class="bi bi-building"></i></div>
+            <div class="stat-value">@clients.Count(c => !string.IsNullOrEmpty(c.MatriculeFiscal))</div>
+            <div class="stat-label">Avec Matricule Fiscal</div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card stat-success">
+            <div class="stat-icon"><i class="bi bi-envelope-fill"></i></div>
+            <div class="stat-value">@clients.Count(c => !string.IsNullOrEmpty(c.Email))</div>
+            <div class="stat-label">Avec Email</div>
+        </div>
+    </div>
+</div>
+
+<!-- Toolbar -->
+<div class="toolbar-card animate-in" style="animation-delay:.15s;">
+    <MudTextField @bind-Value="searchString" Placeholder="Rechercher par nom ou matricule fiscal..." 
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" 
+                  IconSize="Size.Medium" Class="mt-0 flex-grow-1" Immediate="true"
+                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+</div>
+
+<!-- Data Table -->
+<div class="animate-in" style="animation-delay:.2s;">
+    <MudTable Items="@FilteredClients" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@isLoading" 
+              LoadingProgressColor="Color.Info" Striped="true" Elevation="0">
+        <HeaderContent>
+            <MudTh><i class="bi bi-person me-1"></i>Nom / Raison Sociale</MudTh>
+            <MudTh><i class="bi bi-card-text me-1"></i>Matricule Fiscal</MudTh>
+            <MudTh><i class="bi bi-telephone me-1"></i>Téléphone</MudTh>
+            <MudTh><i class="bi bi-envelope me-1"></i>Email</MudTh>
+            <MudTh Style="text-align:right">Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Nom">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                         style="width:36px;height:36px;background:rgba(21,101,192,.1);color:#1565C0;font-weight:700;font-size:0.85rem;">
+                        @context.Nom.Substring(0, Math.Min(2, context.Nom.Length)).ToUpper()
+                    </div>
+                    <strong>@context.Nom</strong>
+                </div>
+            </MudTd>
+            <MudTd DataLabel="Matricule Fiscal">
+                @if (!string.IsNullOrEmpty(context.MatriculeFiscal))
+                {
+                    <span class="badge bg-light text-dark border px-2 py-1" style="font-size:0.8rem;">@context.MatriculeFiscal</span>
+                }
+                else
+                {
+                    <span class="text-muted fst-italic" style="font-size:0.8rem;">Non renseigné</span>
+                }
+            </MudTd>
+            <MudTd DataLabel="Téléphone">@context.Telephone</MudTd>
+            <MudTd DataLabel="Email">
+                @if (!string.IsNullOrEmpty(context.Email))
+                {
+                    <a href="mailto:@context.Email" class="text-decoration-none">@context.Email</a>
+                }
+            </MudTd>
+            <MudTd Style="text-align:right">
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary" Size="Size.Small" 
+                               Href="@($"/clients/{context.Id}")" Title="Modifier" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small" 
+                               OnClick="@(() => DeleteClient(context))" Title="Supprimer" />
+            </MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new int[] { 10, 25, 50 }" RowsPerPageString="Clients par page :" />
+        </PagerContent>
+        <NoRecordsContent>
+            <div class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size:3rem; color:var(--delta-text-muted);"></i>
+                <p class="mt-2 text-muted">Aucun client trouvé.</p>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/clients/nouvel" StartIcon="@Icons.Material.Filled.Add">
+                    Ajouter un premier client
+                </MudButton>
+            </div>
+        </NoRecordsContent>
+    </MudTable>
+</div>
+
+@code {
+    private IEnumerable<Client> clients = new List<Client>();
+    private bool isLoading = true;
+    private string searchString = "";
+
+    private IEnumerable<Client> FilteredClients => string.IsNullOrWhiteSpace(searchString) 
+        ? clients 
+        : clients.Where(x => x.Nom.Contains(searchString, StringComparison.OrdinalIgnoreCase) || 
+                             (x.MatriculeFiscal != null && x.MatriculeFiscal.Contains(searchString, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        clients = await ClientService.GetAllClientsAsync();
+        isLoading = false;
+    }
+
+    private async Task DeleteClient(Client client)
+    {
+        bool? result = await DialogService.ShowMessageBoxAsync(
+            "Confirmation de suppression",
+            $"Voulez-vous vraiment supprimer le client '{client.Nom}' ?",
+            yesText: "Supprimer", cancelText: "Annuler");
+
+        if (result == true)
+        {
+            try
+            {
+                await ClientService.DeleteClientAsync(client.Id);
+                Snackbar.Add("Client supprimé avec succès.", Severity.Success);
+                await LoadData();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Error);
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Une erreur est survenue lors de la suppression.", Severity.Error);
+            }
+        }
+    }
+}

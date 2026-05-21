@@ -1,0 +1,195 @@
+@page "/tableaudebord/fiscal"
+@rendermode InteractiveServer
+@using Facturation.Services.Services
+@using Radzen
+@using Radzen.Blazor
+@inject IAnalyseService AnalyseService
+
+<PageTitle>Analyses Fiscalité - Delta Facturation</PageTitle>
+
+<div class="page-header animate-in mb-4" style="padding:2rem 2rem 1.75rem;">
+    <div>
+        <h3 class="mb-1">
+            <i class="bi bi-percent me-2"></i>Tableau de Bord - Fiscalité
+        </h3>
+        <p class="mb-0 opacity-75">Suivi de la TVA collectée et des timbres fiscaux</p>
+    </div>
+</div>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1" Style="border-radius: 12px; background: #ffffff;">
+    <div class="d-flex align-center gap-4 flex-wrap">
+        <div style="min-width: 250px;">
+            <MudDateRangePicker @bind-DateRange="dateRange" Label="Période" Variant="@MudBlazor.Variant.Outlined" DateFormat="dd/MM/yyyy" />
+        </div>
+        <MudButton Variant="@MudBlazor.Variant.Filled" Color="Color.Primary" OnClick="LoadData" StartIcon="@Icons.Material.Filled.Refresh" Class="py-3 px-6" Style="border-radius: 8px;">
+            Calculer
+        </MudButton>
+    </div>
+</MudPaper>
+
+@if (isLoading)
+{
+    <div class="d-flex justify-content-center align-items-center" style="min-height:300px;">
+        <div class="text-center">
+            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
+            <p class="mt-3 text-muted fw-semibold">Calcul de la fiscalité en cours...</p>
+        </div>
+    </div>
+}
+else if (dashboardData != null)
+{
+    <!-- KPIs -->
+    <div class="row g-3 mb-4 animate-in">
+        <div class="col-12 col-sm-6">
+            <div class="stat-card" style="background: linear-gradient(135deg, #0288D1 0%, #01579B 100%); color: white; border: none; min-height: 130px; border-radius: 14px; padding: 1.5rem;">
+                <div class="d-flex justify-content-between align-items-center h-100">
+                    <div>
+                        <div class="text-white-50 text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.05em;">TVA Totale Collectée</div>
+                        <div class="stat-value text-white" style="font-size: 2.2rem; font-weight: 800;">@dashboardData.TvaTotaleCollectee.ToString("N3") <span style="font-size: 1.2rem; font-weight: 500;">DT</span></div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.15); color: white; width: 50px; height: 50px; font-size: 1.5rem;"><i class="bi bi-calculator"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6">
+            <div class="stat-card" style="background: linear-gradient(135deg, #E65100 0%, #BF360C 100%); color: white; border: none; min-height: 130px; border-radius: 14px; padding: 1.5rem;">
+                <div class="d-flex justify-content-between align-items-center h-100">
+                    <div>
+                        <div class="text-white-50 text-uppercase fw-semibold mb-1" style="font-size: 0.75rem; letter-spacing: 0.05em;">Total Timbre Fiscal</div>
+                        <div class="stat-value text-white" style="font-size: 2.2rem; font-weight: 800;">@dashboardData.MontantTotalTimbre.ToString("N3") <span style="font-size: 1.2rem; font-weight: 500;">DT</span></div>
+                    </div>
+                    <div class="stat-icon" style="background: rgba(255,255,255,0.15); color: white; width: 50px; height: 50px; font-size: 1.5rem;"><i class="bi bi-file-earmark-ruled"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Répartition TVA -->
+        <div class="col-12 col-md-6">
+            <div class="card border-0 h-100" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                        <i class="bi bi-pie-chart-fill text-primary me-2"></i>Répartition TVA par Taux
+                    </h6>
+                    <small class="text-muted">Proportion selon les différents taux applicables</small>
+                </div>
+                <div class="card-body d-flex align-items-center justify-content-center px-4 pb-4 pt-2" style="min-height: 320px;">
+                    @if (tvaPiePoints.Count > 0)
+                    {
+                        <RadzenChart Style="height: 300px; width: 100%;">
+                            <RadzenDonutSeries Data="@tvaPiePoints" CategoryProperty="Category" ValueProperty="Value" Title="TVA Collectée" Fills="@(new [] { "#1565C0", "#00BFA5", "#FB8C00", "#E53935" })" />
+                            <RadzenLegend Position="LegendPosition.Bottom" />
+                        </RadzenChart>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-pie-chart" style="font-size: 2.5rem; color:#CBD5E1;"></i>
+                            <p class="mt-2">Aucune TVA collectée.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Évolution TVA -->
+        <div class="col-12 col-md-6">
+            <div class="card border-0 h-100" style="border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,.08); background: #ffffff;">
+                <div class="card-header border-0 bg-transparent pt-3 px-4 pb-0">
+                    <h6 class="fw-bold mb-0" style="font-family:'Poppins',sans-serif; color: var(--delta-text);">
+                        <i class="bi bi-graph-up-arrow text-primary me-2"></i>TVA Mensuelle Collectée
+                    </h6>
+                    <small class="text-muted">Évolution temporelle de la collecte</small>
+                </div>
+                <div class="card-body px-3 pt-2 pb-3" style="min-height: 320px;">
+                    @if (tvaEvolutionPoints.Count > 0)
+                    {
+                        <RadzenChart Style="height: 300px; width: 100%;">
+                            <RadzenAreaSeries Data="@tvaEvolutionPoints" CategoryProperty="Category" ValueProperty="Value" Title="TVA Collectée" Smooth="true" Stroke="#FB8C00" Fill="rgba(251, 140, 0, 0.12)">
+                                <RadzenMarkers MarkerType="MarkerType.Circle" Size="4" Fill="#FB8C00" />
+                            </RadzenAreaSeries>
+                            <RadzenCategoryAxis Padding="20" />
+                            <RadzenValueAxis Formatter="@(value => $"{((double)value).ToString("N0")} DT")">
+                                <RadzenGridLines Visible="true" StrokeWidth="1" Stroke="rgba(0,0,0,0.06)" />
+                            </RadzenValueAxis>
+                            <RadzenChartTooltipOptions Shared="true" />
+                            <RadzenLegend Visible="false" />
+                        </RadzenChart>
+                    }
+                    else
+                    {
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-graph-up" style="font-size: 2.5rem; color:#CBD5E1;"></i>
+                            <p class="mt-2">Aucune donnée sur l'évolution.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private FiscalDashboardDto? dashboardData;
+    private bool isLoading = true;
+    private DateRange dateRange = new DateRange(new DateTime(DateTime.Today.Year, 1, 1), DateTime.Today);
+
+    // Radzen Chart Data Point
+    public class ChartDataItem
+    {
+        public string Category { get; set; } = string.Empty;
+        public double Value { get; set; }
+    }
+
+    private List<ChartDataItem> tvaPiePoints = new();
+    private List<ChartDataItem> tvaEvolutionPoints = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        
+        DateTime start = dateRange.Start ?? new DateTime(DateTime.Today.Year, 1, 1);
+        DateTime end = dateRange.End ?? DateTime.Today;
+
+        dashboardData = await AnalyseService.GetFiscalDashboardDataAsync(start, end);
+
+        // Prep TVA Donut Data Points
+        if (dashboardData.TvaParTaux.Count > 0)
+        {
+            tvaPiePoints = dashboardData.TvaParTaux
+                .Where(x => x.Value > 0)
+                .Select(x => new ChartDataItem
+                {
+                    Category = $"TVA {x.Key:N0}% ({x.Value:N0} DT)",
+                    Value = (double)x.Value
+                }).ToList();
+        }
+        else
+        {
+            tvaPiePoints.Clear();
+        }
+
+        // Prep TVA Monthly Area Chart
+        if (dashboardData.EvolutionTvaMensuelle.Count > 0)
+        {
+            tvaEvolutionPoints = dashboardData.EvolutionTvaMensuelle.Select(kv => new ChartDataItem
+            {
+                Category = kv.Key,
+                Value = (double)kv.Value
+            }).ToList();
+        }
+        else
+        {
+            tvaEvolutionPoints.Clear();
+        }
+
+        isLoading = false;
+        StateHasChanged();
+    }
+}

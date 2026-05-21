@@ -1,0 +1,75 @@
+@page "/parametres"
+@rendermode InteractiveServer
+@using Facturation.Services.Services
+@inject IParametreService ParametreService
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Class="mb-4">Paramètres Système</MudText>
+
+@if (isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-4">Fiscalité</MudText>
+                
+                <MudNumericField @bind-Value="timbreFiscal" Label="Montant Timbre Fiscal (DT)" Variant="Variant.Outlined" Min="0" Max="5" HideSpinButtons="true" Class="mb-4" />
+                
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Save" OnClick="SauvegarderTimbre">
+                    Enregistrer
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-4">Taux de TVA Standards</MudText>
+                
+                <MudList T="string" Dense="true">
+                    @foreach (var rate in tvaRates)
+                    {
+                        <MudListItem Icon="@Icons.Material.Filled.Info">
+                            @rate.ToString("N0") %
+                        </MudListItem>
+                    }
+                </MudList>
+                
+                <MudText Typo="Typo.caption" Color="Color.Surface" Class="mt-4">
+                    Les taux de TVA sont configurés au niveau système selon la législation en vigueur.
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private decimal timbreFiscal = 1.000m;
+    private IEnumerable<decimal> tvaRates = new List<decimal>();
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ParametreService.EnsureDefaultParametersAsync();
+        
+        timbreFiscal = await ParametreService.GetTimbreFiscalAsync();
+        tvaRates = await ParametreService.GetTvaRatesAsync();
+        
+        isLoading = false;
+    }
+
+    private async Task SauvegarderTimbre()
+    {
+        try
+        {
+            await ParametreService.SetTimbreFiscalAsync(timbreFiscal);
+            Snackbar.Add("Paramètres fiscaux mis à jour avec succès", Severity.Success);
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Erreur lors de la sauvegarde", Severity.Error);
+        }
+    }
+}

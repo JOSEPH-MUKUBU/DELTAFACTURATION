@@ -1,0 +1,104 @@
+@page "/previsions"
+@rendermode InteractiveServer
+@using Facturation.Services.Services
+@inject IExportService ExportService
+
+<MudText Typo="Typo.h3" Class="mb-4">Prévisions de Ventes</MudText>
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.body2" Color="Color.Secondary">
+        Les prévisions sont calculées automatiquement à partir d'une régression linéaire sur l'historique des 12 derniers mois.
+        Les barres en <strong style="color:#1976D2">bleu</strong> représentent l'historique réel, et les barres en <strong style="color:#FF9800">orange</strong> les prévisions.
+    </MudText>
+</MudPaper>
+
+@if (isLoading)
+{
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudGrid>
+        <MudItem xs="12">
+            <MudPaper Class="pa-4" Elevation="1" Style="height:450px;">
+                <MudText Typo="Typo.h6" Class="mb-4">Évolution du CA HT et Prévisions</MudText>
+                @if (previsions.Count > 0)
+                {
+                    <MudChart T="double" ChartType="ChartType.Bar" ChartSeries="@chartSeries" XAxisLabels="@chartLabels" Width="100%" Height="350px" />
+                }
+                else
+                {
+                    <MudAlert Severity="Severity.Info">Aucune donnée disponible pour les prévisions. Créez des factures pour alimenter l'historique.</MudAlert>
+                }
+            </MudPaper>
+        </MudItem>
+        
+        <MudItem xs="12">
+            <MudPaper Class="pa-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-4">Données détaillées</MudText>
+                <MudSimpleTable Dense="true" Hover="true" Striped="true">
+                    <thead>
+                        <tr>
+                            <th>Mois</th>
+                            <th style="text-align:right">Montant HT (DT)</th>
+                            <th style="text-align:center">Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in previsions)
+                        {
+                            <tr>
+                                <td>@p.Mois</td>
+                                <td style="text-align:right">@p.MontantPrevu.ToString("N3")</td>
+                                <td style="text-align:center">
+                                    @if (p.EstPrevision)
+                                    {
+                                        <MudChip T="string" Color="Color.Warning" Size="Size.Small">Prévision</MudChip>
+                                    }
+                                    else
+                                    {
+                                        <MudChip T="string" Color="Color.Primary" Size="Size.Small">Réel</MudChip>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private List<PrevisionVenteDto> previsions = new();
+    private bool isLoading = true;
+    
+    private List<ChartSeries<double>> chartSeries = new();
+    private string[] chartLabels = Array.Empty<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        previsions = await ExportService.GetPrevisionVentesAsync(3);
+
+        if (previsions.Count > 0)
+        {
+            chartLabels = previsions.Select(p => p.Mois).ToArray();
+            
+            // Historique réel
+            chartSeries.Add(new ChartSeries<double>
+            {
+                Name = "CA Réel",
+                Data = previsions.Select(p => p.EstPrevision ? 0 : (double)p.MontantPrevu).ToArray()
+            });
+
+            // Prévisions
+            chartSeries.Add(new ChartSeries<double>
+            {
+                Name = "Prévision",
+                Data = previsions.Select(p => p.EstPrevision ? (double)p.MontantPrevu : 0).ToArray()
+            });
+        }
+
+        isLoading = false;
+    }
+}

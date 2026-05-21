@@ -1,0 +1,112 @@
+@page "/export-comptable"
+@rendermode InteractiveServer
+@using Facturation.Services.Services
+@inject IExportService ExportService
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h3" Class="mb-4">Export Comptable</MudText>
+
+<MudPaper Class="pa-6" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-4">Exporter les écritures comptables au format CSV</MudText>
+    <MudText Typo="Typo.body2" Class="mb-4" Color="Color.Secondary">
+        Ce fichier CSV contient les écritures comptables prêtes à être importées dans votre logiciel de comptabilité.
+        Les comptes utilisés suivent le Plan Comptable Tunisien.
+    </MudText>
+    
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudDatePicker @bind-Date="dateDebut" Label="Date début" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker @bind-Date="dateFin" Label="Date fin" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy" Required="true" />
+        </MudItem>
+        <MudItem xs="12" md="4" Class="d-flex align-end">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" OnClick="TelechargerCsv" Disabled="@isExporting" FullWidth="true" Size="Size.Large">
+                @if (isExporting)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true"/>
+                    <MudText Class="ms-2">Export en cours...</MudText>
+                }
+                else
+                {
+                    <MudText>Télécharger CSV</MudText>
+                }
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+
+    <MudDivider Class="my-6" />
+    
+    <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>Structure du fichier :</strong></MudText>
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+        <thead>
+            <tr>
+                <th>Colonne</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Date</td><td>Date de la facture (JJ/MM/AAAA)</td></tr>
+            <tr><td>N°Facture</td><td>Numéro de la facture</td></tr>
+            <tr><td>Compte</td><td>Numéro de compte comptable</td></tr>
+            <tr><td>Libellé</td><td>Description de l'écriture</td></tr>
+            <tr><td>Débit</td><td>Montant au débit</td></tr>
+            <tr><td>Crédit</td><td>Montant au crédit</td></tr>
+        </tbody>
+    </MudSimpleTable>
+
+    <MudText Typo="Typo.subtitle1" Class="mt-4 mb-2"><strong>Comptes utilisés :</strong></MudText>
+    <MudSimpleTable Dense="true" Hover="true" Bordered="true">
+        <thead>
+            <tr>
+                <th>Compte</th>
+                <th>Intitulé</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>411000</td><td>Clients</td></tr>
+            <tr><td>701000</td><td>Ventes de marchandises</td></tr>
+            <tr><td>436707</td><td>TVA collectée 7%</td></tr>
+            <tr><td>436713</td><td>TVA collectée 13%</td></tr>
+            <tr><td>436719</td><td>TVA collectée 19%</td></tr>
+            <tr><td>447000</td><td>Timbre fiscal</td></tr>
+        </tbody>
+    </MudSimpleTable>
+</MudPaper>
+
+@code {
+    private DateTime? dateDebut = new DateTime(DateTime.Today.Year, 1, 1);
+    private DateTime? dateFin = DateTime.Today;
+    private bool isExporting = false;
+
+    private async Task TelechargerCsv()
+    {
+        if (dateDebut == null || dateFin == null)
+        {
+            Snackbar.Add("Veuillez renseigner les deux dates.", Severity.Warning);
+            return;
+        }
+
+        isExporting = true;
+        try
+        {
+            var csvBytes = await ExportService.ExportComptableCsvAsync(dateDebut.Value, dateFin.Value);
+            
+            var fileName = $"export_comptable_{dateDebut.Value:yyyyMMdd}_{dateFin.Value:yyyyMMdd}.csv";
+            
+            // Téléchargement via JS Interop
+            await JS.InvokeVoidAsync("downloadFileFromBytes", fileName, Convert.ToBase64String(csvBytes), "text/csv");
+            
+            Snackbar.Add("Export CSV téléchargé avec succès.", Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Erreur : {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+}
