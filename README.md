@@ -1,10 +1,10 @@
-# ⚡ DeltaFacturation
+#  DeltaFacturation
 
 > **Système de Gestion Commerciale & Facturation** — Application web Blazor complète pour la gestion des factures, clients, produits, et analyses fiscales selon la législation tunisienne.
 
 ---
 
-## 📋 Table des Matières
+##  Table des Matières
 
 - [Aperçu](#-aperçu)
 - [Fonctionnalités](#-fonctionnalités)
@@ -21,7 +21,7 @@
 
 ---
 
-## 🌟 Aperçu
+##  Aperçu
 
 **DeltaFacturation** est une application web de gestion commerciale et de facturation destinée aux entreprises tunisiennes. Elle permet de gérer l'intégralité du cycle de vente : de la création des produits jusqu'à la génération des factures avec calcul automatique de la TVA et du timbre fiscal.
 
@@ -29,9 +29,9 @@ L'application est construite sur une architecture en couches (Clean Architecture
 
 ---
 
-## ✨ Fonctionnalités
+##  Fonctionnalités
 
-### 📄 Facturation
+###  Facturation
 - Création, édition et suppression de factures
 - Numérotation automatique des factures (`FAC-XXXXXX`)
 - Calcul automatique HT, TVA multi-taux, TTC
@@ -40,38 +40,38 @@ L'application est construite sur une architecture en couches (Clean Architecture
 - Vue détaillée avec impression / export PDF
 - Filtres avancés par période, statut, client
 
-### 👥 Clients
+###  Clients
 - Gestion complète du répertoire clients
 - Champs : Nom, Email, Téléphone, Adresse, Matricule Fiscal
 - Historique des achats par client
 
-### 📦 Produits & Catalogue
+###  Produits & Catalogue
 - Gestion du catalogue produits avec codes uniques
 - Suivi du stock en temps réel (stock actuel vs seuil minimal)
 - Taux de TVA par produit (7%, 13%, 19%)
 - Activation / désactivation des produits
 
-### 📊 Tableaux de Bord & Analytique
+###  Tableaux de Bord & Analytique
 - **Dashboard principal** : KPIs, CA mensuel, top clients, top produits
 - **Analytique Ventes** : Graphiques d'évolution du CA, répartition par période
 - **Analytique Fiscalité** : TVA collectée par taux, évolution mensuelle, timbres fiscaux
 - **Prévisions** : Projections basées sur l'historique des ventes
 
-### 🔔 Alertes Stock
+###  Alertes Stock
 - Détection automatique des produits sous le seuil minimal
 - Vue dédiée avec indicateurs visuels
 
-### 📤 Export & Comptabilité
+###  Export & Comptabilité
 - Export CSV au format comptable
 - Prévisions financières exportables
 
-### ⚙️ Paramètres Système
+###  Paramètres Système
 - Configuration du montant du timbre fiscal
 - Visualisation des taux de TVA applicables
 
 ---
 
-## 🏗️ Architecture du Projet
+##  Architecture du Projet
 
 Le projet suit une **Architecture en Couches (Clean Architecture)** stricte avec 4 projets séparés :
 
@@ -98,7 +98,7 @@ Web → Services → Infrastructure → Core
 
 ---
 
-## 🛠️ Technologies Utilisées
+##  Technologies Utilisées
 
 | Couche | Technologie | Version |
 |--------|------------|---------|
@@ -114,7 +114,7 @@ Web → Services → Infrastructure → Core
 
 ---
 
-## 📦 Prérequis
+##  Prérequis
 
 Avant de lancer l'application, assurez-vous d'avoir installé :
 
@@ -130,7 +130,7 @@ mysql --version    # Doit afficher 8.x.x ou +
 
 ---
 
-## ⚙️ Installation & Configuration
+##  Installation & Configuration
 
 ### 1. Cloner le projet
 
@@ -177,7 +177,7 @@ dotnet restore
 
 ---
 
-## 🚀 Lancement de l'Application
+##  Lancement de l'Application
 
 ```bash
 dotnet run --project Facturation.Web
@@ -191,7 +191,7 @@ http://localhost:5007
 
 ---
 
-## 🔐 Authentification & Rôles
+##  Authentification & Rôles
 
 L'application dispose d'un système d'authentification intégré avec deux comptes préconfigurés :
 
@@ -204,7 +204,7 @@ L'application dispose d'un système d'authentification intégré avec deux compt
 
 ---
 
-## 📁 Structure des Dossiers
+##  Structure des Dossiers
 
 ```
 DeltaFacturation/
@@ -272,7 +272,7 @@ DeltaFacturation/
 
 ---
 
-## 🗄️ Modèle de Données
+##  Modèle de Données
 
 ### Diagramme des Entités
 
@@ -316,7 +316,7 @@ DeltaFacturation/
 
 ---
 
-## 🧩 Modules Fonctionnels
+##  Modules Fonctionnels
 
 ### `AnalyseService`
 Service d'agrégation des données pour les tableaux de bord.
@@ -347,7 +347,7 @@ Gestion du catalogue et des stocks.
 
 ---
 
-## 🎨 Composants UI
+##  Composants UI
 
 ### Design System
 L'application utilise un système de design cohérent basé sur :
@@ -375,11 +375,11 @@ Interface glassmorphisme avec :
 - `RadzenAreaSeries` : Surfaces d'évolution TVA
 - `RadzenDonutSeries` : Répartition TVA par taux
 
-> ⚠️ **Important** : `RadzenSeriesMeanLine` n'est compatible qu'avec les graphiques Cartésiens (Column, Line, Area). Ne pas l'utiliser dans un `RadzenDonutSeries` ou `RadzenPieSeries`.
+>  **Important** : `RadzenSeriesMeanLine` n'est compatible qu'avec les graphiques Cartésiens (Column, Line, Area). Ne pas l'utiliser dans un `RadzenDonutSeries` ou `RadzenPieSeries`.
 
 ---
 
-## 🐛 Problèmes Connus & Solutions
+##  Problèmes Connus & Solutions
 
 ### Port déjà utilisé au démarrage
 Si vous obtenez `Address already in use` sur le port 5007 :
@@ -397,7 +397,7 @@ Toutes les pages utilisent `@rendermode InteractiveServer` défini globalement d
 
 ---
 
-## 📄 Licence
+##  Licence
 
 Projet développé à des fins académiques et professionnelles.  
 © 2026 DeltaFacturation — Tous droits réservés.
